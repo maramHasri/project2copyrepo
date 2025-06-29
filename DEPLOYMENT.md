@@ -84,3 +84,122 @@ MAX_FILE_SIZE=10485760
 - If database connection fails, check the `DATABASE_URL` format
 - If the app doesn't start, check the logs in Render dashboard
 - If users can't login, they may need to reset passwords due to the hashing algorithm change 
+
+# Deployment Guide - Fixing 502 Errors
+
+## Common 502 Error Causes and Solutions
+
+### 1. Host Configuration Issue ✅ FIXED
+**Problem**: Using `127.0.0.1` (localhost only) prevents external connections
+**Solution**: Use `0.0.0.0` to accept connections from any IP address
+
+### 2. Port Configuration Issue ✅ FIXED
+**Problem**: Hardcoded port doesn't work with Render's dynamic port assignment
+**Solution**: Use `$PORT` environment variable
+
+### 3. Missing Dependencies ✅ FIXED
+**Problem**: Production dependencies missing
+**Solution**: Added `gunicorn` and proper uvicorn configuration
+
+## Files Modified for Deployment
+
+### `run.py` - Development Server
+```python
+import uvicorn
+import os
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 3000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+```
+
+### `start.py` - Production Server (NEW)
+```python
+import os
+import uvicorn
+from main import app
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=port,
+        reload=False,  # Disable reload in production
+        workers=1,     # Single worker for Render
+        log_level="info"
+    )
+```
+
+### `render.yaml` - Render Configuration
+```yaml
+services:
+  - type: web
+    name: book-platform-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python start.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.7
+      - key: PORT
+        value: 8000
+```
+
+## Deployment Steps
+
+1. **Commit and Push Changes**
+   ```bash
+   git add .
+   git commit -m "Fix 502 error: Update host and port configuration"
+   git push origin main
+   ```
+
+2. **Render Deployment**
+   - Render will automatically detect the `render.yaml` file
+   - The service will use `python start.py` as the start command
+   - Port will be automatically assigned via `$PORT` environment variable
+
+3. **Environment Variables** (if needed)
+   - Add any additional environment variables in Render dashboard
+   - Database URL, API keys, etc.
+
+## Testing Deployment
+
+1. **Check Render Logs**
+   - Go to your service in Render dashboard
+   - Check "Logs" tab for any errors
+
+2. **Test Endpoints**
+   - Try accessing your API root: `https://your-app.onrender.com/`
+   - Check docs: `https://your-app.onrender.com/docs`
+
+## Common Issues and Solutions
+
+### Still Getting 502?
+1. **Check Render Logs**: Look for specific error messages
+2. **Database Connection**: Ensure database URL is correct
+3. **Dependencies**: Verify all packages are installed
+4. **Startup Time**: Render has a 30-second startup limit
+
+### Database Issues
+- If using SQLite locally, consider switching to PostgreSQL for production
+- Add `DATABASE_URL` environment variable in Render
+
+### Memory Issues
+- Reduce workers to 1 (already done)
+- Optimize imports and reduce memory usage
+
+## Local Testing
+
+Test the production configuration locally:
+```bash
+# Set PORT environment variable
+set PORT=8000  # Windows
+export PORT=8000  # Linux/Mac
+
+# Run production server
+python start.py
+```
+
+Your API should now be accessible at `http://localhost:8000` 
