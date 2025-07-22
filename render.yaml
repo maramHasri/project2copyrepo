@@ -8,4 +8,8 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.7
       - key: PORT
-        value: 8000 
+        value: 8000
+      - key: FROM_EMAIL
+        value: meesama89434@gmail.com
+      - key: FROM_NAME
+        value: Book Platform 

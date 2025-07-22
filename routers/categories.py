@@ -4,7 +4,8 @@ from typing import List
 from database import get_db
 from models import Category, User
 from schemas import CategoryCreate, Category as CategorySchema
-from security import get_current_active_user, check_admin_role
+from security import get_current_active_user
+from routers.admin_auth import get_current_admin
 
 router = APIRouter()
 
@@ -54,7 +55,7 @@ async def get_category(
 async def update_category(
     category_id: int,
     category: CategoryCreate,
-    current_user: User = Depends(check_admin_role()),
+    current_admin = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     db_category = db.query(Category).filter(Category.id == category_id).first()
@@ -85,7 +86,7 @@ async def update_category(
 @router.delete("/{category_id}")
 async def delete_category(
     category_id: int,
-    current_user: User = Depends(check_admin_role()),
+    current_admin = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     category = db.query(Category).filter(Category.id == category_id).first()

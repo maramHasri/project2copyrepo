@@ -142,12 +142,12 @@ def check_admin_role():
         return current_user
     return admin_checker
 
-def check_writer_or_publisher_role():
-    async def writer_publisher_checker(current_user: User = Depends(get_current_active_user)) -> User:
-        if current_user.role not in [UserRole.writer, UserRole.publisher]:
+def check_writer_or_admin_role():
+    async def writer_admin_checker(current_user: User = Depends(get_current_active_user)) -> User:
+        if current_user.role not in [UserRole.writer, UserRole.admin]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Operation requires writer or publisher role"
+                detail="Operation requires writer or admin role"
             )
         return current_user
-    return writer_publisher_checker 
+    return writer_admin_checker 

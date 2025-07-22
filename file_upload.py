@@ -54,6 +54,8 @@ def validate_image_file(file: UploadFile) -> None:
             detail=f"File size {file_size} bytes exceeds maximum allowed size of {MAX_FILE_SIZE} bytes"
         )
 
+
+
 def save_profile_image(file: UploadFile, user_id: int) -> str:
     """Save profile image and return the file URL"""
     validate_image_file(file)
@@ -110,6 +112,8 @@ def save_publisher_logo(file: UploadFile, publisher_id: int) -> str:
     
     # Return relative URL
     return f"/uploads/images/publisher_logos/{filename}"
+
+
 
 def delete_file(file_url: str) -> bool:
     """Delete a file by its URL"""

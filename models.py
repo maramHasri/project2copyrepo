@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 from database import Base
 from datetime import datetime
 import enum
+
 # Association tables
 user_interests = Table(
     'user_interests',
@@ -15,8 +16,12 @@ user_interests = Table(
 class UserRole(str, enum.Enum):
     reader = "reader"
     writer = "writer"
-    publisher = "publisher"
-    admin = "admin"
+
+class AdminRole(str, enum.Enum):
+    super_admin = "super_admin"      # Full system access
+    content_admin = "content_admin"  # Content moderation only
+    user_admin = "user_admin"        # User management only
+    publisher_admin = "publisher_admin"  # Publisher management only
 
 book_categories = Table(
     'book_categories',
@@ -32,15 +37,22 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     full_name = Column(String, nullable=True)
     phone_number = Column(String, unique=True)
+    email = Column(String, unique=True, nullable=True)
     
     hashed_password = Column(String)
     role = Column(Enum(UserRole), default=UserRole.reader)
     is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)  # Email verification
     created_at = Column(DateTime, default=datetime.utcnow)
     profile_image = Column(String, nullable=True)
     bio = Column(String, nullable=True)
     social_links = Column(String, nullable=True)
     
+    # Writer-specific fields
+    writer_bio = Column(Text, nullable=True)
+    writing_experience = Column(Text, nullable=True)
+    published_books_count = Column(Integer, default=0)
+    is_featured_writer = Column(Boolean, default=False)
     
     # Relationships
     interests = relationship("Category", secondary=user_interests, back_populates="interested_users")
@@ -49,7 +61,67 @@ class User(Base):
     saved_books = relationship("Book", secondary="user_saved_books", back_populates="saved_by")
     comments = relationship("Comment", back_populates="user")
     quotes = relationship("Quote", back_populates="author")
-    publisher = relationship("Publisher", back_populates="user", uselist=False)
+
+class Admin(Base):
+    __tablename__ = "admins"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    full_name = Column(String, nullable=True)
+    email = Column(String, unique=True, index=True)
+    phone_number = Column(String, unique=True, nullable=True)
+    
+    hashed_password = Column(String)
+    role = Column(Enum(AdminRole), default=AdminRole.content_admin)
+    is_active = Column(Boolean, default=True)
+    is_super_admin = Column(Boolean, default=False)  # Super admin flag
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
+    
+    # Admin-specific fields
+    permissions = Column(Text, nullable=True)  # JSON string of specific permissions
+    can_manage_users = Column(Boolean, default=False)
+    can_manage_publishers = Column(Boolean, default=False)
+    can_manage_content = Column(Boolean, default=False)
+    can_manage_system = Column(Boolean, default=False)
+    
+    # Relationships
+    admin_actions = relationship("AdminAction", back_populates="admin")
+
+class AdminAction(Base):
+    __tablename__ = "admin_actions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    admin_id = Column(Integer, ForeignKey("admins.id"))
+    action_type = Column(String)  # "user_management", "content_moderation", etc.
+    action_description = Column(Text)
+    target_entity_type = Column(String)  # "user", "publisher", "book", etc.
+    target_entity_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    admin = relationship("Admin", back_populates="admin_actions")
+
+class PublisherHouse(Base):
+    __tablename__ = "publisher_houses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    license_image = Column(String, nullable=True)  # Path to license image
+    logo_image = Column(String, nullable=True)     # Path to logo image
+    is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)   # Admin verification
+    created_at = Column(DateTime, default=datetime.utcnow)
+    address = Column(Text, nullable=True)
+    contact_info = Column(Text, nullable=True)
+    foundation_date = Column(DateTime, nullable=True)
+    
+    # Relationships
+    books = relationship("Book", back_populates="publisher_house")
+    vacancies = relationship("Vacancy", back_populates="publisher_house")
+    featured_writers = relationship("User", secondary="publisher_featured_writers")
 
 class Category(Base):
     __tablename__ = "categories"
@@ -71,35 +143,18 @@ class Book(Base):
     is_free = Column(Boolean, default=False)
     price = Column(Float, nullable=True)
     cover_url = Column(String, nullable=True)
-    author_id = Column(Integer, ForeignKey("users.id"))
-    publisher_id = Column(Integer, ForeignKey("publishers.id"), nullable=True)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    publisher_house_id = Column(Integer, ForeignKey("publisher_houses.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
     author = relationship("User", back_populates="books")
-    publisher = relationship("Publisher", back_populates="books")
+    publisher_house = relationship("PublisherHouse", back_populates="books")
     categories = relationship("Category", secondary=book_categories, back_populates="books")
     liked_by = relationship("User", secondary="user_liked_books", back_populates="liked_books")
     saved_by = relationship("User", secondary="user_saved_books", back_populates="saved_books")
     comments = relationship("Comment", back_populates="book")
     quotes = relationship("Quote", back_populates="book")
-
-class Publisher(Base):
-    __tablename__ = "publishers"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    name = Column(String, index=True)
-    logo = Column(String, nullable=True)
-    foundation_date = Column(DateTime(timezone=True))
-    address = Column(Text, nullable=True)
-    contact_info = Column(Text)
-    
-    # Relationships
-    user = relationship("User", back_populates="publisher")
-    books = relationship("Book", back_populates="publisher")
-    vacancies = relationship("Vacancy", back_populates="publisher")
-    featured_writers = relationship("User", secondary="publisher_featured_writers")
 
 class Quote(Base):
     __tablename__ = "quotes"
@@ -133,11 +188,14 @@ class Vacancy(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True)
-    publisher_id = Column(Integer, ForeignKey("publishers.id"))
+    description = Column(Text, nullable=True)
+    requirements = Column(Text, nullable=True)
+    publisher_house_id = Column(Integer, ForeignKey("publisher_houses.id"))
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
-    publisher = relationship("Publisher", back_populates="vacancies")
+    publisher_house = relationship("PublisherHouse", back_populates="vacancies")
     attachments = relationship("VacancyAttachment", back_populates="vacancy")
 
 class VacancyAttachment(Base):
@@ -169,6 +227,6 @@ user_saved_books = Table(
 publisher_featured_writers = Table(
     'publisher_featured_writers',
     Base.metadata,
-    Column('publisher_id', Integer, ForeignKey('publishers.id')),
+    Column('publisher_house_id', Integer, ForeignKey('publisher_houses.id')),
     Column('writer_id', Integer, ForeignKey('users.id'))
 ) 

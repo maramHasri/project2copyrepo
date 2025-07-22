@@ -4,7 +4,7 @@ from typing import List, Optional
 from database import get_db
 from models import Book, User, Category
 from schemas import BookCreate, BookUpdate, Book as BookSchema, FileUploadResponse
-from security import get_current_active_user, check_writer_or_publisher_role
+from unified_auth import get_current_unified_user
 from file_upload import save_book_cover, delete_file
 
 router = APIRouter()
@@ -12,7 +12,6 @@ router = APIRouter()
 @router.post("/", response_model=BookSchema)
 async def create_book(
     book: BookCreate,
-    current_user: User = Depends(check_writer_or_publisher_role()),
     db: Session = Depends(get_db)
 ):
     # Enforce unique book title
@@ -44,12 +43,13 @@ async def create_book(
             detail="One or more categories not found"
         )
     
+    # For public book creation, we'll set author_id to None since no user is authenticated
     db_book = Book(
         title=book.title,
         description=book.description,
         is_free=book.is_free,
         price=book.price,
-        author_id=current_user.id,
+        author_id=None,  # No specific author for public creation
         categories=categories
     )
     db.add(db_book)
@@ -60,7 +60,7 @@ async def create_book(
 @router.post("/simple", response_model=BookSchema)
 async def create_book_simple(
     book: BookCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_unified_user),
     db: Session = Depends(get_db)
 ):
     """Simple book creation endpoint that works with any authenticated user"""
@@ -114,7 +114,7 @@ async def create_book_with_cover(
     price: Optional[float] = Form(None),
     category_ids: str = Form(...),  # JSON string of category IDs
     cover_image: Optional[UploadFile] = File(None),
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_unified_user),
     db: Session = Depends(get_db)
 ):
     import json
@@ -191,7 +191,7 @@ async def create_book_with_cover(
 async def upload_book_cover(
     book_id: int,
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_unified_user),
     db: Session = Depends(get_db)
 ):
     # Check if book exists and user has permission
@@ -240,7 +240,7 @@ async def get_books(
 
 @router.get("/recommended", response_model=List[BookSchema])
 async def get_recommended_books(
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_unified_user),
     db: Session = Depends(get_db)
 ):
     # Recommend books based on user interests
@@ -267,7 +267,7 @@ async def get_book_by_title(
 async def update_book_by_title(
     title: str,
     book_update: BookUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_unified_user),
     db: Session = Depends(get_db)
 ):
     db_book = db.query(Book).filter(Book.title == title).first()
@@ -318,7 +318,7 @@ async def update_book_by_title(
 @router.delete("/{book_id}")
 async def delete_book(
     book_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_unified_user),
     db: Session = Depends(get_db)
 ):
     db_book = db.query(Book).filter(Book.id == book_id).first()
@@ -341,7 +341,7 @@ async def delete_book(
 @router.post("/{book_id}/like")
 async def like_book(
     book_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_unified_user),
     db: Session = Depends(get_db)
 ):
     book = db.query(Book).filter(Book.id == book_id).first()
@@ -364,7 +364,7 @@ async def like_book(
 @router.post("/{book_id}/save")
 async def save_book(
     book_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_unified_user),
     db: Session = Depends(get_db)
 ):
     book = db.query(Book).filter(Book.id == book_id).first()

@@ -1,14 +1,14 @@
-from typing import List, Optional
-from pydantic import BaseModel, EmailStr, HttpUrl, validator
+from pydantic import BaseModel, HttpUrl, validator
+from typing import Optional, List
 from datetime import datetime
-from fastapi import UploadFile
-from models import UserRole
+from models import UserRole, AdminRole
 
 # User schemas
 class UserBase(BaseModel):
     username: str
     full_name: Optional[str] = None
     phone_number: str
+    email: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
@@ -26,6 +26,7 @@ class UserInDB(UserBase):
     id: int
     role: UserRole
     is_active: bool
+    is_verified: bool
     created_at: datetime
 
     class Config:
@@ -35,10 +36,63 @@ class User(UserInDB):
     profile_image: Optional[str] = None
     bio: Optional[str] = None
     social_links: Optional[str] = None
-    publisher_id: Optional[int] = None
-    has_publisher_record: Optional[bool] = None
+    # Writer-specific fields
+    writer_bio: Optional[str] = None
+    writing_experience: Optional[str] = None
+    published_books_count: int = 0
+    is_featured_writer: bool = False
 
-# Login schemas
+    class Config:
+        from_attributes = True
+
+# Admin schemas
+class AdminBase(BaseModel):
+    username: str
+    full_name: Optional[str] = None
+    email: str
+    phone_number: Optional[str] = None
+
+class AdminCreate(AdminBase):
+    password: str
+    role: AdminRole = AdminRole.content_admin
+    admin_code: str  # Required for admin registration
+
+class AdminUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    role: Optional[AdminRole] = None
+    permissions: Optional[str] = None
+
+class Admin(AdminBase):
+    id: int
+    role: AdminRole
+    is_active: bool
+    is_super_admin: bool
+    created_at: datetime
+    last_login: Optional[datetime] = None
+    can_manage_users: bool
+    can_manage_publishers: bool
+    can_manage_content: bool
+    can_manage_system: bool
+
+    class Config:
+        from_attributes = True
+
+# Admin Action schemas
+class AdminActionBase(BaseModel):
+    action_type: str
+    action_description: str
+    target_entity_type: str
+    target_entity_id: Optional[int] = None
+
+class AdminAction(AdminActionBase):
+    id: int
+    admin_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -48,11 +102,76 @@ class RoleLoginRequest(BaseModel):
     password: str
     role: UserRole
 
-# File upload schemas
 class FileUploadResponse(BaseModel):
     filename: str
     file_url: str
     message: str
+
+# Publisher House schemas
+class PublisherHouseBase(BaseModel):
+    name: str
+    email: str
+    
+    @validator('email')
+    def validate_email(cls, v):
+        if not v or '@' not in v:
+            raise ValueError('Invalid email address')
+        return v.lower()
+
+class PublisherHouseCreate(PublisherHouseBase):
+    password: str
+    confirm_password: str
+    license_image: Optional[str] = None
+    logo_image: Optional[str] = None
+    
+    @validator('confirm_password')
+    def passwords_match(cls, v, values):
+        if 'password' in values and v != values['password']:
+            raise ValueError('Passwords do not match')
+        return v
+    
+    @validator('password')
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        return v
+
+class PublisherHouseLogin(BaseModel):
+    email: str
+    password: str
+    
+    @validator('email')
+    def validate_email(cls, v):
+        if not v or '@' not in v:
+            raise ValueError('Invalid email address')
+        return v.lower()
+
+class PublisherHouseUpdate(BaseModel):
+    name: Optional[str] = None
+    address: Optional[str] = None
+    contact_info: Optional[str] = None
+    logo_image: Optional[str] = None
+
+class PublisherHouse(PublisherHouseBase):
+    id: int
+    is_active: bool
+    is_verified: bool
+    created_at: datetime
+    license_image: Optional[str] = None
+    logo_image: Optional[str] = None
+    address: Optional[str] = None
+    contact_info: Optional[str] = None
+    foundation_date: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class PublisherHouseToken(BaseModel):
+    access_token: str
+    token_type: str
+    publisher_house_id: int
+    name: str
+    email: str
 
 # Category schemas
 class CategoryBase(BaseModel):
@@ -89,34 +208,10 @@ class BookUpdate(BaseModel):
 
 class Book(BookBase):
     id: int
-    author_id: int
-    publisher_id: Optional[int] = None
+    author_id: Optional[int] = None
+    publisher_house_id: Optional[int] = None
     created_at: datetime
     categories: List[Category]
-
-    class Config:
-        from_attributes = True
-
-# Publisher schemas
-class PublisherBase(BaseModel):
-    name: str
-    foundation_date: datetime
-    address: Optional[str] = None
-    contact_info: str
-
-class PublisherCreate(PublisherBase):
-    logo: Optional[HttpUrl] = None
-
-class PublisherUpdate(BaseModel):
-    name: Optional[str] = None
-    logo: Optional[HttpUrl] = None
-    address: Optional[str] = None
-    contact_info: Optional[str] = None
-
-class Publisher(PublisherBase):
-    id: int
-    user_id: int
-    logo: Optional[HttpUrl] = None
 
     class Config:
         from_attributes = True
@@ -163,17 +258,24 @@ class Comment(CommentBase):
 # Vacancy schemas
 class VacancyBase(BaseModel):
     title: str
+    description: Optional[str] = None
+    requirements: Optional[str] = None
 
 class VacancyCreate(VacancyBase):
     pass
 
 class VacancyUpdate(BaseModel):
     title: Optional[str] = None
+    description: Optional[str] = None
+    requirements: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class Vacancy(VacancyBase):
     id: int
-    publisher_id: int
+    publisher_house_id: int
+    is_active: bool
     created_at: datetime
+    publisher_house: Optional[PublisherHouse] = None
 
     class Config:
         from_attributes = True
@@ -199,6 +301,13 @@ class Token(BaseModel):
     role: UserRole
     user_id: int
 
+class UnifiedToken(BaseModel):
+    access_token: str
+    token_type: str
+    role: str
+    entity_type: str
+    user_id: int
+
 class TokenData(BaseModel):
     username: Optional[str] = None
 
@@ -211,7 +320,7 @@ class AdminStats(BaseModel):
     total_users: int
     total_books: int
     total_categories: int
-    total_publishers: int
+    total_publisher_houses: int
     users_by_role: dict
     recent_books: List[Book]
     recent_users: List[User]
@@ -220,14 +329,37 @@ class UserManagement(BaseModel):
     user_id: int
     action: str  # "activate", "deactivate", "change_role", "delete"
 
+class PublisherHouseManagement(BaseModel):
+    publisher_house_id: int
+    action: str  # "verify", "unverify", "activate", "deactivate", "delete"
+
 # OTP schemas
 class OTPRequest(BaseModel):
     email: str
+    
+    @validator('email')
+    def validate_email(cls, v):
+        if not v or '@' not in v:
+            raise ValueError('Invalid email address')
+        return v.lower()
 
 class OTPVerify(BaseModel):
     email: str
     otp: str
+    
+    @validator('email')
+    def validate_email(cls, v):
+        if not v or '@' not in v:
+            raise ValueError('Invalid email address')
+        return v.lower()
+    
+    @validator('otp')
+    def validate_otp(cls, v):
+        if not v or len(v) != 6 or not v.isdigit():
+            raise ValueError('OTP must be a 6-digit number')
+        return v
 
 class OTPResponse(BaseModel):
     message: str
-    otp: Optional[str] = None  # Only for testing, remove in production 
+    success: bool
+    otp: Optional[str] = None  # For testing only 

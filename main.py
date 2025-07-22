@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
-from routers import auth, users, books, categories, quotes, publishers, vacancies, admin
+from routers import auth, users, books, categories, quotes, admin_auth, publisher_auth, publisher_vacancies, unified_auth
 from database import engine
 from models import Base
 import os
@@ -15,7 +15,7 @@ os.makedirs("uploads", exist_ok=True)
 
 app = FastAPI(
     title="Book Platform API",
-    description="A FastAPI-based backend for a book platform with Bearer token authentication and file uploads",
+    description="fikr project swagger ",
     version="1.0.0"
 )
 
@@ -50,19 +50,22 @@ def custom_openapi():
         "/register",
         "/register/reader",
         "/register/writer", 
-        "/register/publisher",
-        "/register/admin",
         "/login",
         "/login/reader",
         "/login/writer",
-        "/login/publisher",
-        "/login/admin",
+        "/admin/register",
+        "/admin/login",
+        "/unified/login",
+        "/unified/login/user",
+        "/unified/login/publisher",
+        "/send-otp",
+        "/verify-otp",
+        "/publisher/register",
+        "/publisher/login",
         "/books/",
         "/books/{title}",
         "/categories/",
-        "/categories/{category_id}",
-        "/publishers/",
-        "/publishers/{publisher_id}"
+        "/categories/{category_id}"
     }
     
     for path in openapi_schema["paths"]:
@@ -84,7 +87,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "Authorization", "Content-Type"],
 )
 
 # Mount static files for serving uploaded images
@@ -92,13 +95,15 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Include routers
 app.include_router(auth.router, tags=["Authentication"])
+app.include_router(unified_auth.router, prefix="/unified", tags=["Unified Authentication"])
 app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(books.router, prefix="/books", tags=["Books"])
 app.include_router(categories.router, prefix="/categories", tags=["Categories"])
 app.include_router(quotes.router, prefix="/quotes", tags=["Quotes"])
-app.include_router(publishers.router, prefix="/publishers", tags=["Publishers"])
-app.include_router(vacancies.router, prefix="/vacancies", tags=["Vacancies"])
-app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+
+app.include_router(admin_auth.router, prefix="/admin", tags=["Admin Authentication"])
+app.include_router(publisher_auth.router, prefix="/publisher", tags=["Publisher House"])
+app.include_router(publisher_vacancies.router, prefix="/publisher/vacancies", tags=["Publisher Vacancies"])
 
 @app.get("/")
 async def root():
@@ -107,11 +112,11 @@ async def root():
         "docs": "/docs",
         "redoc": "/redoc",
         "features": [
-            "Role-based authentication (Reader, Writer, Publisher, Admin)",
-            "Separate registration and login for each role",
+            "Role-based authentication (Reader, Writer, Admin)",
+            "Separate publisher house platform",
             "File upload support",
             "Admin dashboard and user management",
             "Book and category management",
-            "Publisher management"
+            "Publisher house management"
         ]
     } 
