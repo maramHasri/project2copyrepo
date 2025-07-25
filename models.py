@@ -17,6 +17,7 @@ class UserRole(str, enum.Enum):
     reader = "reader"
     writer = "writer"
 
+#و الله حاسة انو ممكن تتغير مالي متاكدة او ممكن زيد تفاصيل عله 
 class AdminRole(str, enum.Enum):
     super_admin = "super_admin"      # Full system access
     content_admin = "content_admin"  # Content moderation only
@@ -35,7 +36,6 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
-    full_name = Column(String, nullable=True)
     phone_number = Column(String, unique=True)
     email = Column(String, unique=True, nullable=True)
     
@@ -50,7 +50,6 @@ class User(Base):
     
     # Writer-specific fields
     writer_bio = Column(Text, nullable=True)
-    writing_experience = Column(Text, nullable=True)
     published_books_count = Column(Integer, default=0)
     is_featured_writer = Column(Boolean, default=False)
     
@@ -67,7 +66,6 @@ class Admin(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
-    full_name = Column(String, nullable=True)
     email = Column(String, unique=True, index=True)
     phone_number = Column(String, unique=True, nullable=True)
     

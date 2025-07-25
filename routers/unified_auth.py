@@ -21,13 +21,13 @@ async def unified_login(
     """
     
     # Try to authenticate as User first
-    user = db.query(User).filter(User.username == login_data.username).first()
+    user = db.query(User).filter(User.email == login_data.email).first()
     if user and verify_password(login_data.password, user.hashed_password):
         # Create token for user (reader/writer)
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_unified_access_token(
             data={
-                "sub": user.username,
+                "sub": user.email,
                 "entity_type": "user",
                 "role": user.role.value
             },
@@ -77,11 +77,11 @@ async def user_login(
     db: Session = Depends(get_db)
 ):
     """Login specifically for Users (readers/writers)"""
-    user = db.query(User).filter(User.username == login_data.username).first()
+    user = db.query(User).filter(User.email == login_data.email).first()
     if not user or not verify_password(login_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     

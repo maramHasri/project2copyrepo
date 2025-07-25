@@ -1,5 +1,5 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from database import get_db
 from models import PublisherHouse
@@ -69,45 +69,46 @@ async def get_current_publisher_house_from_token(
     return publisher_house
 
 # Publisher House Registration
-@router.post("/register", response_model=PublisherHouseSchema)
-async def register_publisher_house(
-    publisher_data: PublisherHouseCreate, 
-    db: Session = Depends(get_db)
-):
-    """Register a new publisher house"""
+# Remove the JSON-based registration endpoint for /register
+# @router.post("/register", response_model=PublisherHouseSchema)
+# async def register_publisher_house(
+#     publisher_data: PublisherHouseCreate, 
+#     db: Session = Depends(get_db)
+# ):
+#     """Register a new publisher house"""
     
-    # Check if email already exists
-    existing_publisher = db.query(PublisherHouse).filter(PublisherHouse.email == publisher_data.email).first()
-    if existing_publisher:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
+#     # Check if email already exists
+#     existing_publisher = db.query(PublisherHouse).filter(PublisherHouse.email == publisher_data.email).first()
+#     if existing_publisher:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Email already registered"
+#         )
     
-    # Check if name already exists
-    existing_publisher = db.query(PublisherHouse).filter(PublisherHouse.name == publisher_data.name).first()
-    if existing_publisher:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Publisher house name already exists"
-        )
+#     # Check if name already exists
+#     existing_publisher = db.query(PublisherHouse).filter(PublisherHouse.name == publisher_data.name).first()
+#     if existing_publisher:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Publisher house name already exists"
+#         )
     
-    # Create new publisher house
-    hashed_password = get_password_hash(publisher_data.password)
-    db_publisher = PublisherHouse(
-        name=publisher_data.name,
-        email=publisher_data.email,
-        hashed_password=hashed_password,
-        license_image=publisher_data.license_image,
-        logo_image=publisher_data.logo_image
-    )
-    db.add(db_publisher)
-    db.commit()
-    db.refresh(db_publisher)
+#     # Create new publisher house
+#     hashed_password = get_password_hash(publisher_data.password)
+#     db_publisher = PublisherHouse(
+#         name=publisher_data.name,
+#         email=publisher_data.email,
+#         hashed_password=hashed_password,
+#         license_image=publisher_data.license_image,
+#         logo_image=publisher_data.logo_image
+#     )
+#     db.add(db_publisher)
+#     db.commit()
+#     db.refresh(db_publisher)
     
 
     
-    return db_publisher
+#     return db_publisher
 
 
 
@@ -195,118 +196,78 @@ async def update_publisher_house_profile(
     db.refresh(publisher_house)
     return publisher_house
 
-# Upload License Image
-@router.post("/upload-license")
-async def upload_license_image(
-    file: UploadFile = File(...),
-    publisher_house_id: int = None,
+# Rename /submit-form-logo to /register
+@router.post("/register")
+async def register_publisher_house_form(
+    name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    confirm_password: str = Form(...),
+    license_image: UploadFile = File(...),
+    logo_image: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    """Upload license image for publisher house"""
-    if not publisher_house_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Publisher house ID is required"
-        )
-    
-    publisher_house = get_current_publisher_house(publisher_house_id, db)
-    
-    # Validate file type
-    if not file.content_type.startswith('image/'):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must be an image"
-        )
-    
-    # Create uploads directory if it doesn't exist
-    upload_dir = "uploads/images/publisher_licenses"
-    os.makedirs(upload_dir, exist_ok=True)
-    
-    # Generate unique filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"license_{publisher_house_id}_{timestamp}_{file.filename}"
-    file_path = os.path.join(upload_dir, filename)
-    
-    # Save file
-    with open(file_path, "wb") as buffer:
-        content = await file.read()
-        buffer.write(content)
-    
-    # Update publisher house record
-    publisher_house.license_image = file_path
-    db.commit()
-    
-    return {
-        "message": "License image uploaded successfully",
-        "filename": filename,
-        "file_path": file_path
-    }
+    """Register Publisher House"""
+    # 1. Check if email or name already exists
+    if db.query(PublisherHouse).filter(PublisherHouse.email == email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    if db.query(PublisherHouse).filter(PublisherHouse.name == name).first():
+        raise HTTPException(status_code=400, detail="Publisher house name already exists")
+    if password != confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
 
-# Upload Logo Image
-@router.post("/upload-logo")
-async def upload_logo_image(
-    file: UploadFile = File(...),
-    publisher_house_id: int = None,
-    db: Session = Depends(get_db)
-):
-    """Upload logo image for publisher house"""
-    if not publisher_house_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Publisher house ID is required"
-        )
-    
-    publisher_house = get_current_publisher_house(publisher_house_id, db)
-    
-    # Validate file type
-    if not file.content_type.startswith('image/'):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must be an image"
-        )
-    
-    # Create uploads directory if it doesn't exist
-    upload_dir = "uploads/images/publisher_logos"
-    os.makedirs(upload_dir, exist_ok=True)
-    
-    # Generate unique filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"logo_{publisher_house_id}_{timestamp}_{file.filename}"
-    file_path = os.path.join(upload_dir, filename)
-    
-    # Save file
-    with open(file_path, "wb") as buffer:
-        content = await file.read()
-        buffer.write(content)
-    
-    # Update publisher house record
-    publisher_house.logo_image = file_path
-    db.commit()
-    
-    return {
-        "message": "Logo image uploaded successfully",
-        "filename": filename,
-        "file_path": file_path
-    }
+    # 2. Save uploaded files
+    uploads_dir = "uploads/images/publisher_licenses"
+    os.makedirs(uploads_dir, exist_ok=True)
+    license_filename = f"license_{email}_{license_image.filename}"
+    license_path = os.path.join(uploads_dir, license_filename)
+    with open(license_path, "wb") as f:
+        f.write(await license_image.read())
+    await license_image.seek(0)
 
-# Test endpoint for publisher authentication
-@router.get("/test-auth")
-async def test_publisher_auth(publisher_house_id: int, db: Session = Depends(get_db)):
-    """Test publisher house authentication"""
-    publisher_house = get_current_publisher_house(publisher_house_id, db)
+    uploads_dir_logo = "uploads/images/publisher_logos"
+    os.makedirs(uploads_dir_logo, exist_ok=True)
+    logo_filename = f"logo_{email}_{logo_image.filename}"
+    logo_path = os.path.join(uploads_dir_logo, logo_filename)
+    with open(logo_path, "wb") as f:
+        f.write(await logo_image.read())
+    await logo_image.seek(0)
+
+    # 3. Hash password
+    hashed_password = get_password_hash(password)
+
+    # 4. Create and save PublisherHouse
+    db_publisher = PublisherHouse(
+        name=name,
+        email=email,
+        hashed_password=hashed_password,
+        license_image=license_path,
+        logo_image=logo_path,
+        is_active=False,  # Pending approval
+        is_verified=False  # Pending approval
+    )
+    db.add(db_publisher)
+    db.commit()
+    db.refresh(db_publisher)
+
+    # 5. Return created user (excluding password)
     return {
-        "message": "Publisher authentication successful!",
-        "publisher_house": {
-            "id": publisher_house.id,
-            "name": publisher_house.name,
-            "email": publisher_house.email,
-            "is_verified": publisher_house.is_verified
+        "id": db_publisher.id,
+        "name": db_publisher.name,
+        "email": db_publisher.email,
+        "license_image": db_publisher.license_image,
+        "logo_image": db_publisher.logo_image
+    } 
+
+@router.get("/publisher-requests")
+def get_all_publisher_requests(db: Session = Depends(get_db)):
+    publishers = db.query(PublisherHouse).all()
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "date_of_registration": p.created_at,
+            "state": "active" if p.is_active else "nonactive"
         }
-    }
-
-# Get all publisher houses (for admin)
-@router.get("/all", response_model=list[PublisherHouseSchema])
-async def get_all_publisher_houses(db: Session = Depends(get_db)):
-    """Get all publisher houses (admin only)"""
-    publisher_houses = db.query(PublisherHouse).all()
-    return publisher_houses 
+        for p in publishers
+    ] 

@@ -6,7 +6,6 @@ from models import UserRole, AdminRole
 # User schemas
 class UserBase(BaseModel):
     username: str
-    full_name: Optional[str] = None
     phone_number: str
     email: Optional[str] = None
 
@@ -38,7 +37,6 @@ class User(UserInDB):
     social_links: Optional[str] = None
     # Writer-specific fields
     writer_bio: Optional[str] = None
-    writing_experience: Optional[str] = None
     published_books_count: int = 0
     is_featured_writer: bool = False
 
@@ -48,7 +46,6 @@ class User(UserInDB):
 # Admin schemas
 class AdminBase(BaseModel):
     username: str
-    full_name: Optional[str] = None
     email: str
     phone_number: Optional[str] = None
 
@@ -58,9 +55,9 @@ class AdminCreate(AdminBase):
     admin_code: str  # Required for admin registration
 
 class AdminUpdate(BaseModel):
-    full_name: Optional[str] = None
     phone_number: Optional[str] = None
     role: Optional[AdminRole] = None
+    
     permissions: Optional[str] = None
 
 class Admin(AdminBase):
@@ -94,7 +91,7 @@ class AdminAction(AdminActionBase):
         from_attributes = True
 
 class LoginRequest(BaseModel):
-    username: str
+    email: str
     password: str
 
 class RoleLoginRequest(BaseModel):

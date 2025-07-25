@@ -2,8 +2,8 @@ from datetime import timedelta, datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Admin, AdminRole, AdminAction
-from schemas import AdminCreate, Admin as AdminSchema, AdminUpdate, LoginRequest
+from models import Admin, AdminRole, AdminAction, PublisherHouse
+from schemas import AdminCreate, Admin as AdminSchema, AdminUpdate, LoginRequest, PublisherHouse as PublisherHouseSchema
 from security import (
     verify_password,
     get_password_hash,
@@ -116,7 +116,6 @@ async def register_admin(
     hashed_password = get_password_hash(admin_data.password)
     db_admin = Admin(
         username=admin_data.username,
-        full_name=admin_data.full_name,
         email=admin_data.email,
         phone_number=admin_data.phone_number,
         hashed_password=hashed_password,
@@ -142,11 +141,11 @@ async def admin_login(
     """Login for admin users"""
     
     # Authenticate admin
-    admin = db.query(Admin).filter(Admin.username == login_data.username).first()
+    admin = db.query(Admin).filter(Admin.email == login_data.email).first()
     if not admin or not verify_password(login_data.password, admin.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
@@ -204,11 +203,7 @@ async def update_admin_profile(
     current_admin: Admin = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    """Update current admin profile"""
     
-    # Update fields
-    if admin_update.full_name is not None:
-        current_admin.full_name = admin_update.full_name
     if admin_update.phone_number is not None:
         current_admin.phone_number = admin_update.phone_number
     if admin_update.permissions is not None:
@@ -231,21 +226,37 @@ async def get_all_admins(
     admins = db.query(Admin).offset(skip).limit(limit).all()
     return admins
 
-# Get Admin by ID (Super Admin Only)
-@router.get("/{admin_id}", response_model=AdminSchema)
-async def get_admin_by_id(
-    admin_id: int,
-    current_admin: Admin = Depends(get_super_admin),
+# Route: Get all publisher registration requests (admin only)
+@router.get("/publisher-requests", response_model=list[PublisherHouseSchema])
+def get_all_publisher_requests(db: Session = Depends(get_db)):
+    """Get all publisher registration requests (admin only)"""
+    publishers = db.query(PublisherHouse).all()
+    return publishers
+
+# Route: Accept or decline a publisher registration (admin only)
+@router.put("/publisher-requests/{publisher_id}/status")
+def update_publisher_status(
+    publisher_id: int,
+    is_active: bool,
+    is_verified: bool = None,
     db: Session = Depends(get_db)
 ):
-    """Get admin by ID (super admin only)"""
-    admin = db.query(Admin).filter(Admin.id == admin_id).first()
-    if not admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Admin not found"
-        )
-    return admin
+    """Accept or decline a publisher registration (admin only)"""
+    publisher = db.query(PublisherHouse).filter(PublisherHouse.id == publisher_id).first()
+    if not publisher:
+        raise HTTPException(status_code=404, detail="Publisher house not found")
+    publisher.is_active = is_active
+    if is_verified is not None:
+        publisher.is_verified = is_verified
+    db.commit()
+    db.refresh(publisher)
+    return {
+        "id": publisher.id,
+        "name": publisher.name,
+        "email": publisher.email,
+        "is_active": publisher.is_active,
+        "is_verified": publisher.is_verified
+    }
 
 # Update Admin (Super Admin Only)
 @router.put("/{admin_id}", response_model=AdminSchema)
@@ -263,9 +274,7 @@ async def update_admin(
             detail="Admin not found"
         )
     
-    # Update fields
-    if admin_update.full_name is not None:
-        admin.full_name = admin_update.full_name
+   
     if admin_update.phone_number is not None:
         admin.phone_number = admin_update.phone_number
     if admin_update.role is not None:

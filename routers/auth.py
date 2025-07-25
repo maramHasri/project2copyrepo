@@ -18,6 +18,7 @@ from security import (
     store_otp,
     verify_otp
 )
+from mailgun_utils import send_otp_email
 
 from typing import Optional
 
@@ -58,7 +59,6 @@ async def register_user(user: UserCreate, db: Session = Depends(get_db)):
     hashed_password = get_password_hash(user.password)
     db_user = User(
         username=user.username,
-        full_name=user.full_name,
         phone_number=user.phone_number,
         email=user.email,
         hashed_password=hashed_password,
@@ -80,55 +80,19 @@ async def login_for_access_token(
     login_data: LoginRequest,
     db: Session = Depends(get_db)
 ):
-    # Authenticate user
-    user = db.query(User).filter(User.username == login_data.username).first()
+    # Authenticate user by email instead of username
+    user = db.query(User).filter(User.email == login_data.email).first()
     if not user or not verify_password(login_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
     # Create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    
-    return {
-        "access_token": access_token, 
-        "token_type": "bearer",
-        "role": user.role,
-        "user_id": user.id
-    }
-
-# Role-specific login
-@router.post("/login/{role}", response_model=Token)
-async def login_with_role(
-    role: UserRole,
-    login_data: LoginRequest,
-    db: Session = Depends(get_db)
-):
-    # Authenticate user
-    user = db.query(User).filter(User.username == login_data.username).first()
-    if not user or not verify_password(login_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    # Check if user has the required role
-    if user.role != role:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"User does not have {role} role"
-        )
-    
-    # Create access token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user.email}, expires_delta=access_token_expires
     )
     
     return {
@@ -165,16 +129,12 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
 @router.post("/send-otp", response_model=OTPResponse)
 async def send_otp(otp_request: OTPRequest):
     """Send OTP to email address"""
-    # Use constant OTP for testing
-    TEST_OTP = "123456"
-    otp = TEST_OTP
+    otp = generate_otp()
     store_otp(otp_request.email, otp)
-    
-    # For now, just return the OTP (email service removed)
+    send_otp_email(otp_request.email, otp)
     return OTPResponse(
-        message="OTP generated successfully",
-        success=True,
-        otp=otp  # Always include the constant OTP for testing
+        message="OTP sent successfully",
+        success=True
     )
 
 @router.post("/verify-otp", response_model=dict)

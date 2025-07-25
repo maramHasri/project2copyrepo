@@ -101,7 +101,6 @@ async def get_unified_user(token: str = Depends(get_bearer_token), db: Session =
             is_active=user.is_active,
             is_verified=user.is_verified,
             email=user.email,
-            full_name=user.full_name
         )
     
     # Try to find publisher house
