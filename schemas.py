@@ -191,6 +191,7 @@ class BookBase(BaseModel):
     is_free: bool
     price: Optional[float] = None
     cover_url: Optional[HttpUrl] = None
+    book_file: str  # Required book file path
 
 class BookCreate(BookBase):
     category_ids: List[int]
@@ -198,8 +199,8 @@ class BookCreate(BookBase):
 class BookUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    is_free: Optional[bool] = None
-    price: Optional[float] = None
+    is_free: Optional[bool] = None  # If set to True, price will automatically be set to 0
+    price: Optional[float] = None    # Required if is_free is False
     category_ids: Optional[List[int]] = None
     cover_url: Optional[HttpUrl] = None
 

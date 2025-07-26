@@ -9,25 +9,27 @@ from routers.admin_auth import get_current_admin
 
 router = APIRouter()
 
-# @router.post("/", response_model=CategorySchema)
-# async def create_category(
-#     category: CategoryCreate,
-#     _: User = Depends(check_admin_role()),
-#     db: Session = Depends(get_db)
-# ):
-#     """Only admins can create categories"""
-#     db_category = db.query(Category).filter(Category.name == category.name).first()
-#     if db_category:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Category already exists"
-#         )
+@router.post("/", response_model=CategorySchema)
+async def create_category(
+    category: CategoryCreate,
+    current_admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Only admins can create categories. Use the Authorize button above to provide admin token."""
+    # Check if category name already exists
+    db_category = db.query(Category).filter(Category.name == category.name).first()
+    if db_category:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Category already exists"
+        )
     
-#     db_category = Category(**category.dict())
-#     db.add(db_category)
-#     db.commit()
-#     db.refresh(db_category)
-#     return db_category
+    # Create new category
+    db_category = Category(**category.dict())
+    db.add(db_category)
+    db.commit()
+    db.refresh(db_category)
+    return db_category
 
 @router.get("/", response_model=List[CategorySchema])
 async def get_categories(
@@ -58,6 +60,7 @@ async def update_category(
     current_admin = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
+    """Update category. Admin authentication required. """
     db_category = db.query(Category).filter(Category.id == category_id).first()
     if not db_category:
         raise HTTPException(
@@ -89,6 +92,7 @@ async def delete_category(
     current_admin = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
+    """Delete category. Admin authentication required. Use the Authorize button above."""
     category = db.query(Category).filter(Category.id == category_id).first()
     if not category:
         raise HTTPException(

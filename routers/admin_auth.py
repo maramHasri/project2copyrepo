@@ -21,7 +21,7 @@ import json
 router = APIRouter()
 
 # Helper functions for dependencies (moved to top)
-async def get_bearer_token(authorization: Optional[str] = Header(None)) -> str:
+async def get_bearer_token(authorization: Optional[str] = Header(None, include_in_schema=False)) -> str:
     """Extract bearer token from authorization header"""
     if not authorization:
         raise HTTPException(
