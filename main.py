@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
-from routers import auth, users, books, categories, quotes, admin_auth, publisher_auth, publisher_vacancies, unified_auth
+from routers import auth, users, books, categories, quotes, admin_auth, publisher_auth, publisher_vacancies
 from database import engine
 from models import Base
 import os
@@ -55,15 +55,16 @@ def custom_openapi():
         "/login/writer",
         "/admin/register",
         "/admin/login",
-        "/unified/login",
-        "/unified/login/user",
-        "/unified/login/publisher",
         "/send-otp",
         "/verify-otp",
         "/publisher/register",
         "/publisher/login",
         "/books/",
         "/books/{title}",
+    }
+    
+    # Define public GET paths (read-only endpoints that don't need auth)
+    public_get_paths = {
         "/categories/",
         "/categories/{category_id}"
     }
@@ -71,10 +72,17 @@ def custom_openapi():
     for path in openapi_schema["paths"]:
         for method in openapi_schema["paths"][path]:
             if method.lower() in ["get", "post", "put", "delete", "patch"]:
-                # Skip public paths
-                if path not in public_paths:
-                    if "security" not in openapi_schema["paths"][path][method]:
-                        openapi_schema["paths"][path][method]["security"] = [{"BearerAuth": []}]
+                # Skip completely public paths
+                if path in public_paths:
+                    continue
+                
+                # Skip GET requests for public read-only paths
+                if method.lower() == "get" and path in public_get_paths:
+                    continue
+                
+                # Add security requirement for all other endpoints
+                if "security" not in openapi_schema["paths"][path][method]:
+                    openapi_schema["paths"][path][method]["security"] = [{"BearerAuth": []}]
     
     app.openapi_schema = openapi_schema
     return app.openapi_schema
@@ -90,12 +98,12 @@ app.add_middleware(
     allow_headers=["*", "Authorization", "Content-Type"],
 )
 
-# Mount static files for serving uploaded images
+# Mount static files for serving uploaded files
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Include routers
 app.include_router(auth.router, tags=["Authentication"])
-app.include_router(unified_auth.router, prefix="/unified", tags=["Unified Authentication"])
+
 app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(books.router, prefix="/books", tags=["Books"])
 app.include_router(categories.router, prefix="/categories", tags=["Categories"])
@@ -113,7 +121,7 @@ async def root():
         "redoc": "/redoc",
         "features": [
             "Role-based authentication (Reader, Writer, Admin)",
-            "Separate publisher house platform",
+            "Publisher house platform",
             "File upload support",
             "Admin dashboard and user management",
             "Book and category management",
