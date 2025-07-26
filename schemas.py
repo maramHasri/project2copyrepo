@@ -195,6 +195,7 @@ class BookBase(BaseModel):
 
 class BookCreate(BookBase):
     category_ids: List[int]
+    author_name: Optional[str] = None  # Required for publishers, auto-filled for writers
 
 class BookUpdate(BaseModel):
     title: Optional[str] = None
@@ -203,9 +204,11 @@ class BookUpdate(BaseModel):
     price: Optional[float] = None    # Required if is_free is False
     category_ids: Optional[List[int]] = None
     cover_url: Optional[HttpUrl] = None
+    author_name: Optional[str] = None  # Allow updating author name
 
 class Book(BookBase):
     id: int
+    author_name: str  # Author name (writer's username or publisher-provided name)
     author_id: Optional[int] = None
     publisher_house_id: Optional[int] = None
     created_at: datetime

@@ -141,13 +141,13 @@ async def login_publisher_house(
         data={"sub": f"publisher_{publisher_house.email}"}, expires_delta=access_token_expires
     )
     
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "publisher_house_id": publisher_house.id,
-        "name": publisher_house.name,
-        "email": publisher_house.email
-    }
+    return PublisherHouseToken(
+        access_token=access_token,
+        token_type="bearer",
+        publisher_house_id=publisher_house.id,
+        name=publisher_house.name,
+        email=publisher_house.email
+    )
 
 # Get Publisher House Profile
 @router.get("/me", response_model=PublisherHouseSchema)

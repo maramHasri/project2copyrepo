@@ -142,6 +142,7 @@ class Book(Base):
     price = Column(Float, nullable=True)
     cover_image = Column(String, nullable=True)  # Relative path to cover image
     book_file = Column(String, unique=True, nullable=False)  # Relative path to book file (PDF only)
+    author_name = Column(String, nullable=True)  # Author name (writer's username or publisher-provided name)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     publisher_house_id = Column(Integer, ForeignKey("publisher_houses.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

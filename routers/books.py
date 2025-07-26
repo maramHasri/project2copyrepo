@@ -127,6 +127,7 @@ async def create_book_with_file(
     ),
     book_file: UploadFile = File(..., description="PDF file of the book (required)"),
     cover_image: Optional[UploadFile] = File(None, description="Cover image file (optional)"),
+    author_name: Optional[str] = Form(None, description="Author name (required for publishers, auto-filled for writers)"),
     current_user = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     request: Request = None
@@ -204,13 +205,32 @@ async def create_book_with_file(
             detail=f"Categories not found: {missing_ids}"
         )
     
+    # Handle author_name logic based on user type
+    if hasattr(current_user, 'role') and current_user.role == UserRole.writer:
+        # If user is a writer, automatically set author_name to their username
+        final_author_name = current_user.username
+        author_id = current_user.id
+        publisher_house_id = None
+    else:
+        # If user is a publisher or admin, require author_name to be provided
+        if not author_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Author name is required "
+            )
+        final_author_name = author_name
+        author_id = None
+        publisher_house_id = current_user.id if hasattr(current_user, 'id') else None
+    
     # Create book first (without file URL initially)
     db_book = Book(
         title=title,
         description=description,
         is_free=is_free,
         price=price,
-        author_id=current_user.id,
+        author_name=final_author_name,
+        author_id=author_id,
+        publisher_house_id=publisher_house_id,
         book_file="",  # Temporary empty string
         categories=categories
     )
