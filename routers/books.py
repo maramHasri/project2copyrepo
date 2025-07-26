@@ -4,9 +4,10 @@ from typing import List, Optional
 from database import get_db
 from models import Book, User, Category, UserRole
 from schemas import BookCreate, BookUpdate, Book as BookSchema, FileUploadResponse
-from security import get_current_active_user
+from security import get_current_active_user, get_current_unified_user
 from file_upload import save_book_cover, save_book_file, delete_file
 from fastapi import Request
+from routers.publisher_auth import get_current_publisher_house_from_token
 router = APIRouter()
 
 # @router.post("/", response_model=BookSchema)
@@ -128,7 +129,7 @@ async def create_book_with_file(
     book_file: UploadFile = File(..., description="PDF file of the book (required)"),
     cover_image: Optional[UploadFile] = File(None, description="Cover image file (optional)"),
     author_name: Optional[str] = Form(None, description="Author name (required for publishers, auto-filled for writers)"),
-    current_user = Depends(get_current_active_user),
+    current_user = Depends(get_current_unified_user),
     db: Session = Depends(get_db),
     request: Request = None
 ):
@@ -206,21 +207,33 @@ async def create_book_with_file(
         )
     
     # Handle author_name logic based on user type
-    if hasattr(current_user, 'role') and current_user.role == UserRole.writer:
-        # If user is a writer, automatically set author_name to their username
-        final_author_name = current_user.username
-        author_id = current_user.id
-        publisher_house_id = None
+    if hasattr(current_user, 'role'):
+        # This is a User (reader/writer/admin)
+        if current_user.role == UserRole.writer:
+            # If user is a writer, automatically set author_name to their username
+            final_author_name = current_user.username
+            author_id = current_user.id
+            publisher_house_id = None
+        else:
+            # If user is a reader or admin, require author_name to be provided
+            if not author_name:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Author name is required when creating a book as a non-writer user"
+                )
+            final_author_name = author_name
+            author_id = current_user.id
+            publisher_house_id = None
     else:
-        # If user is a publisher or admin, require author_name to be provided
+        # This is a PublisherHouse
         if not author_name:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Author name is required "
+                detail="Author name is required when creating a book as a publisher"
             )
         final_author_name = author_name
         author_id = None
-        publisher_house_id = current_user.id if hasattr(current_user, 'id') else None
+        publisher_house_id = current_user.id
     
     # Create book first (without file URL initially)
     db_book = Book(
@@ -251,6 +264,106 @@ async def create_book_with_file(
     db.commit()
     db.refresh(db_book)
 
+    return db_book
+
+@router.post("/publisher/books/create", response_model=BookSchema)
+async def create_publisher_book_with_file(
+    title: str = Form(...),
+    description: str = Form(...),
+    is_free: bool = Form(...),
+    price: Optional[float] = Form(None),
+    category_ids: str = Form(
+        ..., 
+        description="Category IDs. Accepts: [1,2,3] (JSON array), 1,2,3 (comma-separated), or 1 (single value)",
+        example="1,2,3"
+    ),
+    book_file: UploadFile = File(..., description="PDF file of the book (required)"),
+    cover_image: Optional[UploadFile] = File(None, description="Cover image file (optional)"),
+    author_name: str = Form(..., description="Author name (required)"),
+    current_publisher = Depends(get_current_publisher_house_from_token),
+    db: Session = Depends(get_db),
+    request: Request = None
+):
+    import json
+    # Validate book file is PDF
+    if book_file.content_type != "application/pdf":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Book file must be a PDF file. Only PDF files are allowed."
+        )
+    # Parse category IDs
+    try:
+        try:
+            category_id_list = json.loads(category_ids)
+            if isinstance(category_id_list, int):
+                category_id_list = [category_id_list]
+            elif not isinstance(category_id_list, list):
+                raise ValueError
+        except (json.JSONDecodeError, ValueError, TypeError):
+            category_id_list = [int(x.strip()) for x in category_ids.split(',') if x.strip()]
+        if not category_id_list:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least one category must be selected."
+            )
+        if not all(isinstance(cat_id, int) for cat_id in category_id_list):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="All category IDs must be integers."
+            )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid category_ids format: '{category_ids}'. Accepts: [1,2,3], 1,2,3, or 1."
+        )
+    # Handle price logic
+    if is_free:
+        price = 0
+    else:
+        if price is None or price == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Price is required for paid books"
+            )
+    # Check if book title already exists
+    if db.query(Book).filter(Book.title == title).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Book title must be unique"
+        )
+    # Get categories
+    categories = db.query(Category).filter(Category.id.in_(category_id_list)).all()
+    if len(categories) != len(category_id_list):
+        found_ids = [cat.id for cat in categories]
+        missing_ids = [cat_id for cat_id in category_id_list if cat_id not in found_ids]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Categories not found: {missing_ids}"
+        )
+    # Create book
+    db_book = Book(
+        title=title,
+        description=description,
+        is_free=is_free,
+        price=price,
+        author_name=author_name,
+        author_id=None,
+        publisher_house_id=current_publisher.id,
+        book_file="",  # Temporary empty string
+        categories=categories
+    )
+    db.add(db_book)
+    db.commit()
+    db.refresh(db_book)
+    # Save the book file
+    book_file_url = save_book_file(book_file, db_book.id)
+    db_book.book_file = book_file_url
+    # Handle cover image upload if provided
+    if cover_image:
+        cover_path = save_book_cover(cover_image, db_book.id)
+        db_book.cover_image = cover_path
+    db.commit()
+    db.refresh(db_book)
     return db_book
 
 @router.post("/{book_id}/upload-cover", response_model=FileUploadResponse)

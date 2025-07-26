@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from database import get_db
-from models import User, UserRole
+from models import User, UserRole, PublisherHouse
 from schemas import TokenData
 import random
 import string
@@ -111,6 +111,39 @@ async def get_current_user(token: str = Depends(get_bearer_token), db: Session =
     if user is None:
         raise credentials_exception
     return user
+
+async def get_current_unified_user(token: str = Depends(get_bearer_token), db: Session = Depends(get_db)):
+    """
+    Unified authentication that can handle both user and publisher tokens.
+    Returns either a User object or a PublisherHouse object.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    # Check if it's a publisher token (starts with "publisher_")
+    if email.startswith("publisher_"):
+        publisher_email = email.replace("publisher_", "")
+        publisher = db.query(PublisherHouse).filter(PublisherHouse.email == publisher_email).first()
+        if publisher is None or not publisher.is_active:
+            raise credentials_exception
+        return publisher
+    else:
+        # Regular user token
+        user = db.query(User).filter(User.email == email).first()
+        if user is None or not user.is_active:
+            raise credentials_exception
+        return user
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     if not current_user.is_active:
