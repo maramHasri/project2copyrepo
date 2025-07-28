@@ -18,7 +18,7 @@ from security import (
     store_otp,
     verify_otp
 )
-from elastic_email_utils import send_otp_email_elastic as send_otp_email
+from gmail_utils import send_otp_email_gmail as send_otp_email
 
 from typing import Optional
 

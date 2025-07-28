@@ -81,14 +81,20 @@ async def register_admin(
 ):
     """Register a new admin (requires admin code)"""
     
-    # Verify admin code
+    # Verify admin code FIRST - before any other operations
+    if not admin_data.admin_code:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin code is required"
+        )
+    
     if admin_data.admin_code != ADMIN_CODE:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid admin code"
         )
     
-    # Check if username already exists
+    # Check if username already exists (AFTER admin code validation)
     existing_admin = db.query(Admin).filter(Admin.username == admin_data.username).first()
     if existing_admin:
         raise HTTPException(
@@ -96,7 +102,7 @@ async def register_admin(
             detail="Username already registered"
         )
     
-    # Check if email already exists
+    # Check if email already exists (AFTER admin code validation)
     existing_admin = db.query(Admin).filter(Admin.email == admin_data.email).first()
     if existing_admin:
         raise HTTPException(
@@ -257,6 +263,34 @@ def update_publisher_status(
         "is_active": publisher.is_active,
         "is_verified": publisher.is_verified
     }
+
+# Get all publishers (admin only)
+@router.get("/publishers", response_model=List[PublisherHouseSchema])
+async def get_all_publishers(
+    skip: int = 0,
+    limit: int = 100,
+    current_admin: Admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get all publishers (admin only)"""
+    publishers = db.query(PublisherHouse).offset(skip).limit(limit).all()
+    return publishers
+
+# Get specific publisher by ID (admin only)
+@router.get("/publishers/{publisher_id}", response_model=PublisherHouseSchema)
+async def get_publisher_by_id(
+    publisher_id: int,
+    current_admin: Admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get specific publisher by ID (admin only)"""
+    publisher = db.query(PublisherHouse).filter(PublisherHouse.id == publisher_id).first()
+    if not publisher:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Publisher not found"
+        )
+    return publisher
 
 # Update Admin (Super Admin Only)
 @router.put("/{admin_id}", response_model=AdminSchema)

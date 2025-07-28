@@ -60,6 +60,7 @@ class User(Base):
     saved_books = relationship("Book", secondary="user_saved_books", back_populates="saved_by")
     comments = relationship("Comment", back_populates="user")
     quotes = relationship("Quote", back_populates="author")
+    flashes = relationship("Flash", back_populates="author")
 
 class Admin(Base):
     __tablename__ = "admins"
@@ -170,6 +171,19 @@ class Quote(Base):
     book = relationship("Book", back_populates="quotes")
     author = relationship("User", back_populates="quotes")
 
+class Flash(Base):
+    __tablename__ = "flashes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    text = Column(Text, nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    author_name = Column(String, nullable=False)  # Writer's name
+    number_of_likes = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    author = relationship("User", back_populates="flashes")
+
 class Comment(Base):
     __tablename__ = "comments"
 
@@ -230,3 +244,5 @@ publisher_featured_writers = Table(
     Column('publisher_house_id', Integer, ForeignKey('publisher_houses.id')),
     Column('writer_id', Integer, ForeignKey('users.id'))
 ) 
+
+ 
