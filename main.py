@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
-from routers import auth, users, books, categories, quotes, admin_auth, publisher_auth, publisher_vacancies
+from routers import auth, users, books, categories, quotes, flashes, admin_auth, publisher_auth, publisher_vacancies
 from database import engine
 from models import Base
 import os
@@ -108,6 +108,7 @@ app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(books.router, prefix="/books", tags=["Books"])
 app.include_router(categories.router, prefix="/categories", tags=["Categories"])
 app.include_router(quotes.router, prefix="/quotes", tags=["Quotes"])
+app.include_router(flashes.router, prefix="/flashes", tags=["Flashes"])
 
 app.include_router(admin_auth.router, prefix="/admin", tags=["Admin Authentication"])
 app.include_router(publisher_auth.router, prefix="/publisher", tags=["Publisher House"])

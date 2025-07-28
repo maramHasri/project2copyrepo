@@ -1,4 +1,4 @@
-from pydantic import BaseModel, HttpUrl, validator
+from pydantic import BaseModel, HttpUrl, validator, EmailStr
 from typing import Optional, List
 from datetime import datetime
 from models import UserRole, AdminRole
@@ -7,7 +7,7 @@ from models import UserRole, AdminRole
 class UserBase(BaseModel):
     username: str
     phone_number: str
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
 
 class UserCreate(UserBase):
     password: str
@@ -46,7 +46,7 @@ class User(UserInDB):
 # Admin schemas
 class AdminBase(BaseModel):
     username: str
-    email: str
+    email: EmailStr
     phone_number: Optional[str] = None
 
 class AdminCreate(AdminBase):
@@ -91,7 +91,7 @@ class AdminAction(AdminActionBase):
         from_attributes = True
 
 class LoginRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 class RoleLoginRequest(BaseModel):
@@ -107,13 +107,7 @@ class FileUploadResponse(BaseModel):
 # Publisher House schemas
 class PublisherHouseBase(BaseModel):
     name: str
-    email: str
-    
-    @validator('email')
-    def validate_email(cls, v):
-        if not v or '@' not in v:
-            raise ValueError('Invalid email address')
-        return v.lower()
+    email: EmailStr
 
 class PublisherHouseCreate(PublisherHouseBase):
     password: str
@@ -134,14 +128,8 @@ class PublisherHouseCreate(PublisherHouseBase):
         return v
 
 class PublisherHouseLogin(BaseModel):
-    email: str
+    email: EmailStr
     password: str
-    
-    @validator('email')
-    def validate_email(cls, v):
-        if not v or '@' not in v:
-            raise ValueError('Invalid email address')
-        return v.lower()
 
 class PublisherHouseUpdate(BaseModel):
     name: Optional[str] = None
@@ -223,10 +211,17 @@ class QuoteBase(BaseModel):
     book_id: int
 
     @validator('text')
-    def must_be_in_smart_quotes(cls, v):
-        if not (v.startswith('"') and v.endswith('"')):
-            raise ValueError('Quote text must be wrapped in smart quotes (""')
-        return v
+    def add_smart_quotes(cls, v):
+        """Automatically add smart quotes if not present"""
+        # Remove any existing quotes at the beginning and end
+        v = v.strip()
+        if v.startswith('"') and v.endswith('"'):
+            return v  # Already has quotes
+        elif v.startswith('"') and v.endswith('"'):
+            return v  # Already has smart quotes
+        else:
+            # Add smart quotes
+            return f'"{v}"'
 
 class QuoteCreate(QuoteBase):
     pass
@@ -234,6 +229,36 @@ class QuoteCreate(QuoteBase):
 class Quote(QuoteBase):
     id: int
     author_id: int
+    number_of_likes: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Flash schemas
+class FlashBase(BaseModel):
+    text: str
+
+    @validator('text')
+    def add_smart_quotes(cls, v):
+        """Automatically add smart quotes if not present"""
+        # Remove any existing quotes at the beginning and end
+        v = v.strip()
+        if v.startswith('"') and v.endswith('"'):
+            return v  # Already has quotes
+        elif v.startswith('"') and v.endswith('"'):
+            return v  # Already has smart quotes
+        else:
+            # Add smart quotes
+            return f'"{v}"'
+
+class FlashCreate(FlashBase):
+    pass
+
+class Flash(FlashBase):
+    id: int
+    author_id: int
+    author_name: str
     number_of_likes: int
     created_at: datetime
 
@@ -336,23 +361,11 @@ class PublisherHouseManagement(BaseModel):
 
 # OTP schemas
 class OTPRequest(BaseModel):
-    email: str
-    
-    @validator('email')
-    def validate_email(cls, v):
-        if not v or '@' not in v:
-            raise ValueError('Invalid email address')
-        return v.lower()
+    email: EmailStr
 
 class OTPVerify(BaseModel):
-    email: str
+    email: EmailStr
     otp: str
-    
-    @validator('email')
-    def validate_email(cls, v):
-        if not v or '@' not in v:
-            raise ValueError('Invalid email address')
-        return v.lower()
     
     @validator('otp')
     def validate_otp(cls, v):

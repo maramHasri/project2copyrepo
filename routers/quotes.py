@@ -14,7 +14,8 @@ async def create_quote(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    # Check if user is the author of the book
+    """Create a quote - any authenticated user can create quotes from any book"""
+    # Check if book exists
     book = db.query(Book).filter(Book.id == quote.book_id).first()
     if not book:
         raise HTTPException(
@@ -22,12 +23,7 @@ async def create_quote(
             detail="Book not found"
         )
     
-    if book.author_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the book's author can create quotes"
-        )
-    
+    # Any authenticated user can create quotes
     db_quote = Quote(
         **quote.dict(),
         author_id=current_user.id

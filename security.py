@@ -18,9 +18,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 90
 # Admin configuration
 ADMIN_CODE = "ADMIN2024"  # Change this in production
 
-# OTP storage (in production, use Redis or database)
-otp_storage = {}
-
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -43,8 +40,11 @@ def generate_otp() -> str:
     """Generate a 6-digit OTP"""
     return ''.join(random.choices(string.digits, k=6))
 
+# OTP storage (in memory - temporary)
+otp_storage = {}
+
 def store_otp(email: str, otp: str) -> None:
-    """Store OTP with expiration time"""
+    """Store OTP in memory with expiration time"""
     otp_storage[email] = {
         "otp": otp,
         "expires_at": datetime.utcnow() + timedelta(minutes=5)
@@ -52,18 +52,30 @@ def store_otp(email: str, otp: str) -> None:
 
 def verify_otp(email: str, otp: str) -> bool:
     """Verify OTP for given email"""
+    print(f"🔍 Debug: Verifying OTP for email: {email}")
+    print(f"🔍 Debug: OTP provided: {otp}")
+    print(f"🔍 Debug: OTP storage keys: {list(otp_storage.keys())}")
+    
     if email not in otp_storage:
+        print(f"🔍 Debug: Email {email} not found in OTP storage")
         return False
     
     stored_data = otp_storage[email]
+    print(f"🔍 Debug: Stored OTP: {stored_data['otp']}")
+    print(f"🔍 Debug: Expires at: {stored_data['expires_at']}")
+    print(f"🔍 Debug: Current time: {datetime.utcnow()}")
+    
     if datetime.utcnow() > stored_data["expires_at"]:
+        print(f"🔍 Debug: OTP expired")
         del otp_storage[email]
         return False
     
     if stored_data["otp"] == otp:
-        del otp_storage[email]
+        print(f"🔍 Debug: OTP matched successfully")
+        del otp_storage[email]  # Remove after successful verification
         return True
     
+    print(f"🔍 Debug: OTP mismatch")
     return False
 
 async def get_bearer_token(authorization: Optional[str] = Header(None, include_in_schema=False)) -> str:

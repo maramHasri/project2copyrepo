@@ -4,10 +4,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Elastic Email Configuration
-ELASTIC_EMAIL_API_KEY = os.getenv("ELASTIC_EMAIL_API_KEY", "")
-ELASTIC_EMAIL_FROM = os.getenv("ELASTIC_EMAIL_FROM", "your_verified_sender@yourdomain.com")
-ELASTIC_EMAIL_URL = "https://api.elasticemail.com/v4/emails"
+# Gmail SMTP Configuration
+GMAIL_USER = os.getenv("GMAIL_USER", "meesama89434@gmail.com")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "jvou ybak evxp frbm")
 
 # Other configurations
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./book_platform.db")
