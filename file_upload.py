@@ -36,15 +36,14 @@ ALLOWED_IMAGE_TYPES = {
 }
 
 ALLOWED_BOOK_TYPES = {
-    "application/pdf"  # Only PDF files are allowed for books
+    "application/pdf"  
 }
 
-# Maximum file size (5MB for images, 50MB for books)
+# 50ميجا و ويادة
 MAX_IMAGE_SIZE = 5 * 1024 * 1024
 MAX_BOOK_SIZE = 50 * 1024 * 1024
 
 def validate_image_file(file: UploadFile) -> None:
-    """Validate uploaded image file"""
     if not file.content_type in ALLOWED_IMAGE_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -52,18 +51,17 @@ def validate_image_file(file: UploadFile) -> None:
         )
     
     # Check file size
-    file.file.seek(0, 2)  # Seek to end
+    file.file.seek(0, 2)  
     file_size = file.file.tell()
-    file.file.seek(0)  # Reset to beginning
+    file.file.seek(0)  # لازم رجعه للبداية
     
     if file_size > MAX_IMAGE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File size {file_size} bytes exceeds maximum allowed size of {MAX_IMAGE_SIZE} bytes"
+            detail=f"image size {file_size} bytes exceeds maximum allowed size of {MAX_IMAGE_SIZE} bytes"
         )
 
 def validate_book_file(file: UploadFile) -> None:
-    """Validate uploaded book file"""
     if not file.content_type in ALLOWED_BOOK_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -78,18 +76,17 @@ def validate_book_file(file: UploadFile) -> None:
     if file_size > MAX_BOOK_SIZE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File size {file_size} bytes exceeds maximum allowed size of {MAX_BOOK_SIZE} bytes"
+            detail=f"file size {file_size} bytes exceeds maximum allowed size of {MAX_BOOK_SIZE} bytes"
         )
 
 
 
 def save_profile_image(file: UploadFile, user_id: int) -> str:
-    """Save profile image and return the file URL"""
     validate_image_file(file)
     
     # Generate unique filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     unique_id = str(uuid.uuid4())[:8]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_extension = Path(file.filename).suffix if file.filename else ".jpg"
     filename = f"profile_{user_id}_{timestamp}_{unique_id}{file_extension}"
     
@@ -107,8 +104,8 @@ def save_book_cover(file: UploadFile, book_id: int) -> str:
     validate_image_file(file)
     
     # Generate unique filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     unique_id = str(uuid.uuid4())[:8]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_extension = Path(file.filename).suffix if file.filename else ".jpg"
     filename = f"book_cover_{book_id}_{timestamp}_{unique_id}{file_extension}"
     
@@ -126,8 +123,8 @@ def save_publisher_logo(file: UploadFile, publisher_id: int) -> str:
     validate_image_file(file)
     
     # Generate unique filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     unique_id = str(uuid.uuid4())[:8]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_extension = Path(file.filename).suffix if file.filename else ".jpg"
     filename = f"publisher_logo_{publisher_id}_{timestamp}_{unique_id}{file_extension}"
     
@@ -141,14 +138,12 @@ def save_publisher_logo(file: UploadFile, publisher_id: int) -> str:
     return f"/uploads/images/publisher_logos/{filename}"
 
 def save_book_file(file: UploadFile, book_id: int) -> str:
-    """Save book file and return the file URL"""
     validate_book_file(file)
     
-    # Generate unique filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    unique_id = str(uuid.uuid4())[:8]
+    # Generate unique filename (shorter format for books)
+    unique_id = str(uuid.uuid4())[:6]
     file_extension = Path(file.filename).suffix if file.filename else ".pdf"
-    filename = f"book_{book_id}_{timestamp}_{unique_id}{file_extension}"
+    filename = f"book_{book_id}_{unique_id}{file_extension}"
     
     file_path = BOOK_FILES_DIR / filename
     

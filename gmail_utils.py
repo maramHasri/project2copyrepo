@@ -2,7 +2,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from fastapi import HTTPException
-from config import GMAIL_USER, GMAIL_APP_PASSWORD
+from db_config import GMAIL_USER, GMAIL_APP_PASSWORD
 import random
 
 def generate_otp(length=6):

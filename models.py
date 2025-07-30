@@ -19,10 +19,7 @@ class UserRole(str, enum.Enum):
 
 #و الله حاسة انو ممكن تتغير مالي متاكدة او ممكن زيد تفاصيل عله 
 class AdminRole(str, enum.Enum):
-    super_admin = "super_admin"      # Full system access
-    content_admin = "content_admin"  # Content moderation only
-    user_admin = "user_admin"        # User management only
-    publisher_admin = "publisher_admin"  # Publisher management only
+    super_admin = "super_admin"     
 
 book_categories = Table(
     'book_categories',
@@ -71,18 +68,17 @@ class Admin(Base):
     phone_number = Column(String, unique=True, nullable=True)
     
     hashed_password = Column(String)
-    role = Column(Enum(AdminRole), default=AdminRole.content_admin)
+    role = Column(Enum(AdminRole), default=AdminRole.super_admin)  # All admins are super admins
     is_active = Column(Boolean, default=True)
-    is_super_admin = Column(Boolean, default=False)  # Super admin flag
+    is_super_admin = Column(Boolean, default=True)  # Always true for all admins
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
     
-    # Admin-specific fields
     permissions = Column(Text, nullable=True)  # JSON string of specific permissions
-    can_manage_users = Column(Boolean, default=False)
-    can_manage_publishers = Column(Boolean, default=False)
-    can_manage_content = Column(Boolean, default=False)
-    can_manage_system = Column(Boolean, default=False)
+    can_manage_users = Column(Boolean, default=True)      # All admins can manage users
+    can_manage_publishers = Column(Boolean, default=True) # All admins can manage publishers
+    can_manage_content = Column(Boolean, default=True)    # All admins can manage content
+    can_manage_system = Column(Boolean, default=True)     # All admins can manage system
     
     # Relationships
     admin_actions = relationship("AdminAction", back_populates="admin")
