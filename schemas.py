@@ -51,13 +51,11 @@ class AdminBase(BaseModel):
 
 class AdminCreate(AdminBase):
     password: str
-    role: AdminRole = AdminRole.content_admin
     admin_code: str  # Required for admin registration
 
 class AdminUpdate(BaseModel):
     phone_number: Optional[str] = None
-    role: Optional[AdminRole] = None
-    
+    # Removed role field since all admins are super admins
     permissions: Optional[str] = None
 
 class Admin(AdminBase):
@@ -196,7 +194,7 @@ class BookUpdate(BaseModel):
 
 class Book(BookBase):
     id: int
-    author_name: str  # Author name (writer's username or publisher-provided name)
+    author_name: Optional[str] = None  # Author name (writer's username or publisher-provided name)
     author_id: Optional[int] = None
     publisher_house_id: Optional[int] = None
     created_at: datetime

@@ -67,34 +67,7 @@ async def get_current_user_info(
     # Return user information (publishers now have separate system)
     return current_user
 
-@router.get("/", response_model=List[UserSchema])
-async def get_all_users(
-    skip: int = 0,
-    limit: int = 10,
-    db: Session = Depends(get_db)
-):
-    users = db.query(User).offset(skip).limit(limit).all()
-    return users
 
-@router.get("/readers", response_model=List[UserSchema])
-async def get_readers(
-    skip: int = 0,
-    limit: int = 10,
-    db: Session = Depends(get_db)
-):
-    readers = db.query(User).filter(User.role == UserRole.reader).offset(skip).limit(limit).all()
-    return readers
-
-
-
-@router.get("/writers", response_model=List[UserSchema])
-async def get_writers(
-    skip: int = 0,
-    limit: int = 10,
-    db: Session = Depends(get_db)
-):
-    writers = db.query(User).filter(User.role == UserRole.writer).offset(skip).limit(limit).all()
-    return writers
 
 @router.get("/writers/{writer_id}", response_model=UserSchema)
 async def get_writer(

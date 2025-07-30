@@ -236,6 +236,10 @@ async def create_book_with_file(
         publisher_house_id = current_user.id
     
     # Create book first (without file URL initially)
+    # Generate a temporary unique filename for the book
+    import uuid
+    temp_filename = f"temp_book_{uuid.uuid4().hex[:8]}.pdf"
+    
     db_book = Book(
         title=title,
         description=description,
@@ -244,7 +248,7 @@ async def create_book_with_file(
         author_name=final_author_name,
         author_id=author_id,
         publisher_house_id=publisher_house_id,
-        book_file="",  # Temporary empty string
+        book_file=temp_filename,  # Use temporary unique filename
         categories=categories
     )
     
@@ -341,6 +345,10 @@ async def create_publisher_book_with_file(
             detail=f"Categories not found: {missing_ids}"
         )
     # Create book
+    # Generate a temporary unique filename for the book
+    import uuid
+    temp_filename = f"temp_book_{uuid.uuid4().hex[:8]}.pdf"
+    
     db_book = Book(
         title=title,
         description=description,
@@ -349,7 +357,7 @@ async def create_publisher_book_with_file(
         author_name=author_name,
         author_id=None,
         publisher_house_id=current_publisher.id,
-        book_file="",  # Temporary empty string
+        book_file=temp_filename,  # Use temporary unique filename
         categories=categories
     )
     db.add(db_book)
@@ -366,88 +374,6 @@ async def create_publisher_book_with_file(
     db.refresh(db_book)
     return db_book
 
-@router.post("/{book_id}/upload-cover", response_model=FileUploadResponse)
-async def upload_book_cover(
-    book_id: int,
-    file: UploadFile = File(...),
-    current_user = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    # Check if book exists and user has permission
-    book = db.query(Book).filter(Book.id == book_id).first()
-    if not book:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Book not found"
-        )
-    
-    if book.author_id != current_user.id and current_user.role != UserRole.admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this book"
-        )
-    
-    # Delete old cover if exists
-    if book.cover_image:
-        delete_file(book.cover_image)
-    
-    # Save new cover
-    cover_path = save_book_cover(file, book_id)
-    book.cover_image = cover_path
-    
-    db.commit()
-    db.refresh(book)
-    
-    return FileUploadResponse(
-        filename=file.filename,
-        file_url=cover_path,
-        message="Book cover uploaded successfully"
-    )
-
-@router.post("/{book_id}/upload-file", response_model=FileUploadResponse)
-async def upload_book_file(
-    book_id: int,
-    file: UploadFile = File(..., description="PDF file of the book (required)"),
-    current_user = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    # Validate book file is PDF
-    if file.content_type != "application/pdf":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Book file must be a PDF file. Only PDF files are allowed."
-        )
-    
-    # Check if book exists and user has permission
-    book = db.query(Book).filter(Book.id == book_id).first()
-    if not book:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Book not found"
-        )
-    
-    if book.author_id != current_user.id and current_user.role != UserRole.admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this book"
-        )
-    
-    # Delete old book file if exists
-    if book.book_file:
-        delete_file(book.book_file)
-    
-    # Save new book file
-    book_file_url = save_book_file(file, book_id)
-    book.book_file = book_file_url
-    
-    db.commit()
-    db.refresh(book)
-    
-    return FileUploadResponse(
-        filename=file.filename,
-        file_url=book_file_url,
-        message="Book file uploaded successfully"
-    )
 
 @router.get("/", response_model=List[BookSchema])
 async def get_books(
