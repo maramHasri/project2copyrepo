@@ -2,8 +2,8 @@ from datetime import timedelta, datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Admin, AdminRole, AdminAction, PublisherHouse, Vacancy, VacancyAttachment, User
-from schemas import AdminCreate, Admin as AdminSchema, AdminUpdate, LoginRequest, PublisherHouse as PublisherHouseSchema, Vacancy as VacancySchema, User as UserSchema
+from models import Admin, AdminRole, AdminAction, PublisherHouse, Vacancy, VacancyAttachment, User, Book
+from schemas import AdminCreate, Admin as AdminSchema, AdminUpdate, LoginRequest, PublisherHouse as PublisherHouseSchema, Vacancy as VacancySchema, User as UserSchema, Book as BookSchema
 from security import (
     verify_password,
     get_password_hash,
@@ -236,6 +236,18 @@ async def get_all_publishers(
     publishers = db.query(PublisherHouse).offset(skip).limit(limit).all()
     return publishers
 
+# Get all books (admin only)
+@router.get("/books", response_model=List[BookSchema])
+async def get_all_books(
+    skip: int = 0,
+    limit: int = 100,
+    current_admin: Admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get all books (admin only)"""
+    books = db.query(Book).offset(skip).limit(limit).all()
+    return books
+
 # Get specific publisher by ID (admin only)
 @router.get("/publishers/{publisher_id}", response_model=PublisherHouseSchema)
 async def get_publisher_by_id(
@@ -290,32 +302,26 @@ async def update_admin(
     
     return admin
 
-# Delete Admin (Any admin can delete other admins)
-@router.delete("/{admin_id}")
-async def delete_admin(
-    admin_id: int,
-    current_admin: Admin = Depends(get_current_admin),  # Any admin can delete other admins
+# Delete Book (Admin only)
+@router.delete("/books/{book_id}")
+async def delete_book(
+    book_id: int,
+    current_admin: Admin = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    """Delete admin (any admin can delete other admins)"""
-    admin = db.query(Admin).filter(Admin.id == admin_id).first()
-    if not admin:
+    """Delete book (admin only)"""
+    book = db.query(Book).filter(Book.id == book_id).first()
+    if not book:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Admin not found"
+            detail="Book not found"
         )
     
-    # Prevent self-deletion
-    if admin.id == current_admin.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete your own account"
-        )
-    
-    db.delete(admin)
+    db.delete(book)
     db.commit()
     
-    return {"message": "Admin deleted successfully"}
+    return {"message": "Book deleted successfully"}
+
 
 # Admin Vacancy Management Endpoints
 @router.get("/vacancies", response_model=List[VacancySchema])

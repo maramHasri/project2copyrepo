@@ -117,15 +117,4 @@ app.include_router(publisher_vacancies.router, prefix="/publisher/vacancies", ta
 @app.get("/")
 async def root():
     return {
-        "message": "Welcome to Book Platform API",
-        "docs": "/docs",
-        "redoc": "/redoc",
-        "features": [
-            "Role-based authentication (Reader, Writer, Admin)",
-            "Publisher house platform",
-            "File upload support",
-            "Admin dashboard and user management",
-            "Book and category management",
-            "Publisher house management"
-        ]
     } 

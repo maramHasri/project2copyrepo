@@ -52,30 +52,30 @@ def store_otp(email: str, otp: str) -> None:
 
 def verify_otp(email: str, otp: str) -> bool:
     """Verify OTP for given email"""
-    print(f"🔍 Debug: Verifying OTP for email: {email}")
-    print(f"🔍 Debug: OTP provided: {otp}")
-    print(f"🔍 Debug: OTP storage keys: {list(otp_storage.keys())}")
+    print(f" Debug: Verifying OTP for email: {email}")
+    print(f" Debug: OTP provided: {otp}")
+    print(f" Debug: OTP storage keys: {list(otp_storage.keys())}")
     
     if email not in otp_storage:
-        print(f"🔍 Debug: Email {email} not found in OTP storage")
+        print(f" Debug: Email {email} not found in OTP storage")
         return False
     
     stored_data = otp_storage[email]
-    print(f"🔍 Debug: Stored OTP: {stored_data['otp']}")
-    print(f"🔍 Debug: Expires at: {stored_data['expires_at']}")
-    print(f"🔍 Debug: Current time: {datetime.utcnow()}")
+    print(f" Debug: Stored OTP: {stored_data['otp']}")
+    print(f" Debug: Expires at: {stored_data['expires_at']}")
+    print(f" Debug: Current time: {datetime.utcnow()}")
     
     if datetime.utcnow() > stored_data["expires_at"]:
-        print(f"🔍 Debug: OTP expired")
+        print(f" Debug: OTP expired")
         del otp_storage[email]
         return False
     
     if stored_data["otp"] == otp:
-        print(f"🔍 Debug: OTP matched successfully")
+        print(f" Debug: OTP matched successfully")
         del otp_storage[email]  # Remove after successful verification
         return True
     
-    print(f"🔍 Debug: OTP mismatch")
+    print(f" Debug: OTP mismatch")
     return False
 
 async def get_bearer_token(authorization: Optional[str] = Header(None, include_in_schema=False)) -> str:
