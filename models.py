@@ -5,7 +5,7 @@ from database import Base
 from datetime import datetime
 import enum
 
-# Association tables
+# broken table user\book
 user_interests = Table(
     'user_interests',
     Base.metadata,
@@ -17,7 +17,7 @@ class UserRole(str, enum.Enum):
     reader = "reader"
     writer = "writer"
 
-#و الله حاسة انو ممكن تتغير مالي متاكدة او ممكن زيد تفاصيل عله 
+
 class AdminRole(str, enum.Enum):
     super_admin = "super_admin"     
 
@@ -45,12 +45,12 @@ class User(Base):
     bio = Column(String, nullable=True)
     social_links = Column(String, nullable=True)
     
-    # Writer-specific fields
+    # Writer fields
     writer_bio = Column(Text, nullable=True)
     published_books_count = Column(Integer, default=0)
     is_featured_writer = Column(Boolean, default=False)
     
-    # Relationships
+
     interests = relationship("Category", secondary=user_interests, back_populates="interested_users")
     books = relationship("Book", back_populates="author")
     liked_books = relationship("Book", secondary="user_liked_books", back_populates="liked_by")
@@ -68,17 +68,17 @@ class Admin(Base):
     phone_number = Column(String, unique=True, nullable=True)
     
     hashed_password = Column(String)
-    role = Column(Enum(AdminRole), default=AdminRole.super_admin)  # All admins are super admins
+    role = Column(Enum(AdminRole), default=AdminRole.super_admin) 
     is_active = Column(Boolean, default=True)
     is_super_admin = Column(Boolean, default=True)  # Always true for all admins
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
     
-    permissions = Column(Text, nullable=True)  # JSON string of specific permissions
-    can_manage_users = Column(Boolean, default=True)      # All admins can manage users
-    can_manage_publishers = Column(Boolean, default=True) # All admins can manage publishers
-    can_manage_content = Column(Boolean, default=True)    # All admins can manage content
-    can_manage_system = Column(Boolean, default=True)     # All admins can manage system
+    permissions = Column(Text, nullable=True)  
+    can_manage_users = Column(Boolean, default=True)    
+    can_manage_publishers = Column(Boolean, default=True) 
+    can_manage_content = Column(Boolean, default=True)   
+    can_manage_system = Column(Boolean, default=True)    
     
     # Relationships
     admin_actions = relationship("AdminAction", back_populates="admin")
@@ -88,15 +88,14 @@ class AdminAction(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     admin_id = Column(Integer, ForeignKey("admins.id"))
-    action_type = Column(String)  # "user_management", "content_moderation", etc.
+    action_type = Column(String)  
     action_description = Column(Text)
-    target_entity_type = Column(String)  # "user", "publisher", "book", etc.
+    target_entity_type = Column(String)  
     target_entity_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    # Relationships
     admin = relationship("Admin", back_populates="admin_actions")
-
+#publisher house
 class PublisherHouse(Base):
     __tablename__ = "publisher_houses"
 
@@ -104,16 +103,15 @@ class PublisherHouse(Base):
     name = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
-    license_image = Column(String, nullable=True)  # Path to license image
-    logo_image = Column(String, nullable=True)     # Path to logo image
+    license_image = Column(String, nullable=True)  
+    logo_image = Column(String, nullable=True)    
     is_active = Column(Boolean, default=True)
-    is_verified = Column(Boolean, default=False)   # Admin verification
+    is_verified = Column(Boolean, default=False)   
     created_at = Column(DateTime, default=datetime.utcnow)
     address = Column(Text, nullable=True)
     contact_info = Column(Text, nullable=True)
     foundation_date = Column(DateTime, nullable=True)
-    
-    # Relationships
+    # book
     books = relationship("Book", back_populates="publisher_house")
     vacancies = relationship("Vacancy", back_populates="publisher_house")
     featured_writers = relationship("User", secondary="publisher_featured_writers")
@@ -125,7 +123,7 @@ class Category(Base):
     name = Column(String, unique=True, index=True)
     description = Column(Text, nullable=True)
     
-    # Relationships
+    
     books = relationship("Book", secondary=book_categories, back_populates="categories")
     interested_users = relationship("User", secondary=user_interests, back_populates="interests")
 
@@ -137,14 +135,13 @@ class Book(Base):
     description = Column(Text)
     is_free = Column(Boolean, default=False)
     price = Column(Float, nullable=True)
-    cover_image = Column(String, nullable=True)  # Relative path to cover image
-    book_file = Column(String, unique=True, nullable=False)  # Relative path to book file (PDF only)
-    author_name = Column(String, nullable=True)  # Author name (writer's username or publisher-provided name)
+    cover_image = Column(String, nullable=True) 
+    book_file = Column(String, unique=True, nullable=False)  #  file (PDF only)
+    author_name = Column(String, nullable=True)  # Author name 
     author_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     publisher_house_id = Column(Integer, ForeignKey("publisher_houses.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Relationships
     author = relationship("User", back_populates="books")
     publisher_house = relationship("PublisherHouse", back_populates="books")
     categories = relationship("Category", secondary=book_categories, back_populates="books")
@@ -216,10 +213,9 @@ class VacancyAttachment(Base):
     attachment_url = Column(String)
     attachment_type = Column(String)  # e.g., "google_form", "pdf", etc.
     
-    # Relationships
     vacancy = relationship("Vacancy", back_populates="attachments")
 
-# Association tables for many-to-many relationships
+
 user_liked_books = Table(
     'user_liked_books',
     Base.metadata,

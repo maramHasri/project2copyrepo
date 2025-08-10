@@ -3,7 +3,7 @@ from typing import Optional, List
 from datetime import datetime
 from models import UserRole, AdminRole
 
-# User schemas
+# User schema
 class UserBase(BaseModel):
     username: str
     phone_number: str
@@ -35,7 +35,7 @@ class User(UserInDB):
     profile_image: Optional[str] = None
     bio: Optional[str] = None
     social_links: Optional[str] = None
-    # Writer-specific fields
+    # Writer fields
     writer_bio: Optional[str] = None
     published_books_count: int = 0
     is_featured_writer: bool = False
@@ -43,7 +43,7 @@ class User(UserInDB):
     class Config:
         from_attributes = True
 
-# Admin schemas
+# Admin schema
 class AdminBase(BaseModel):
     username: str
     email: EmailStr
@@ -51,7 +51,7 @@ class AdminBase(BaseModel):
 
 class AdminCreate(AdminBase):
     password: str
-    admin_code: str  # Required for admin registration
+    admin_code: str  # ADMIN2024
 
 class AdminUpdate(BaseModel):
     phone_number: Optional[str] = None
@@ -177,24 +177,24 @@ class BookBase(BaseModel):
     is_free: bool
     price: Optional[float] = None
     cover_url: Optional[HttpUrl] = None
-    book_file: str  # Required book file path
+    book_file: str  # Required 
 
 class BookCreate(BookBase):
     category_ids: List[int]
-    author_name: Optional[str] = None  # Required for publishers, auto-filled for writers
+    author_name: Optional[str] = None  # Required 
 
 class BookUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    is_free: Optional[bool] = None  # If set to True, price will automatically be set to 0
-    price: Optional[float] = None    # Required if is_free is False
+    is_free: Optional[bool] = None  
+    price: Optional[float] = None    
     category_ids: Optional[List[int]] = None
     cover_url: Optional[HttpUrl] = None
     author_name: Optional[str] = None  # Allow updating author name
 
 class Book(BookBase):
     id: int
-    author_name: Optional[str] = None  # Author name (writer's username or publisher-provided name)
+    author_name: Optional[str] = None  
     author_id: Optional[int] = None
     publisher_house_id: Optional[int] = None
     created_at: datetime
@@ -210,15 +210,14 @@ class QuoteBase(BaseModel):
 
     @validator('text')
     def add_smart_quotes(cls, v):
-        """Automatically add smart quotes if not present"""
         # Remove any existing quotes at the beginning and end
         v = v.strip()
         if v.startswith('"') and v.endswith('"'):
-            return v  # Already has quotes
+            return v  
         elif v.startswith('"') and v.endswith('"'):
-            return v  # Already has smart quotes
+            return v 
         else:
-            # Add smart quotes
+            
             return f'"{v}"'
 
 class QuoteCreate(QuoteBase):

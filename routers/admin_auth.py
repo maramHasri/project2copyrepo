@@ -22,7 +22,6 @@ router = APIRouter()
 
 # Helper functions for dependencies (moved to top)
 async def get_bearer_token(authorization: Optional[str] = Header(None, include_in_schema=False)) -> str:
-    """Extract bearer token from authorization header"""
     if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -40,7 +39,7 @@ async def get_bearer_token(authorization: Optional[str] = Header(None, include_i
     return authorization.replace("Bearer ", "")
 
 async def get_current_admin(token: str = Depends(get_bearer_token), db: Session = Depends(get_db)) -> Admin:
-    """Get current admin from token"""
+    #Get  admin from token
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -73,15 +72,15 @@ async def get_super_admin(current_admin: Admin = Depends(get_current_admin)) -> 
         )
     return current_admin
 
-# Admin Registration (Super Admin Only)
+# Admin Registration 
 @router.post("/register", response_model=AdminSchema)
 async def register_admin(
     admin_data: AdminCreate,
     db: Session = Depends(get_db)
 ):
-    """Register a new admin (requires admin code)"""
     
-    # Verify admin code FIRST - before any other operations
+    
+    
     if not admin_data.admin_code:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -94,7 +93,7 @@ async def register_admin(
             detail="Invalid admin code"
         )
     
-    # Check if username already exists (AFTER admin code validation)
+    
     existing_admin = db.query(Admin).filter(Admin.username == admin_data.username).first()
     if existing_admin:
         raise HTTPException(
@@ -102,7 +101,7 @@ async def register_admin(
             detail="Username already registered"
         )
     
-    # Check if email already exists (AFTER admin code validation)
+   
     existing_admin = db.query(Admin).filter(Admin.email == admin_data.email).first()
     if existing_admin:
         raise HTTPException(
@@ -110,7 +109,7 @@ async def register_admin(
             detail="Email already registered"
         )
     
-    # All admins have full permissions (super admin)
+    
     permissions = {
         "can_manage_users": True,
         "can_manage_publishers": True,
@@ -118,14 +117,13 @@ async def register_admin(
         "can_manage_system": True
     }
     
-    # Create new admin (all admins are super admins)
     hashed_password = get_password_hash(admin_data.password)
     db_admin = Admin(
         username=admin_data.username,
         email=admin_data.email,
         phone_number=admin_data.phone_number,
         hashed_password=hashed_password,
-        role=AdminRole.super_admin,  # All admins are super admins
+        role=AdminRole.super_admin, 
         is_super_admin=True,         # Always true
         permissions=json.dumps(permissions),
         **permissions
@@ -163,7 +161,6 @@ async def admin_login(
     admin.last_login = datetime.utcnow()
     db.commit()
     
-    # Create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={

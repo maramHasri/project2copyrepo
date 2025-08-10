@@ -41,7 +41,7 @@ ALLOWED_BOOK_TYPES = {
 
 # 50ميجا و ويادة
 MAX_IMAGE_SIZE = 5 * 1024 * 1024
-MAX_BOOK_SIZE = 50 * 1024 * 1024
+MAX_BOOK_SIZE = 130 * 1024 * 1024
 
 def validate_image_file(file: UploadFile) -> None:
     if not file.content_type in ALLOWED_IMAGE_TYPES:

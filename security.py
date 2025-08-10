@@ -125,10 +125,7 @@ async def get_current_user(token: str = Depends(get_bearer_token), db: Session =
     return user
 
 async def get_current_unified_user(token: str = Depends(get_bearer_token), db: Session = Depends(get_db)):
-    """
-    Unified authentication that can handle both user and publisher tokens.
-    Returns either a User object or a PublisherHouse object.
-    """
+   
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",

@@ -10,111 +10,6 @@ from fastapi import Request
 from routers.publisher_auth import get_current_publisher_house_from_token
 router = APIRouter()
 
-# @router.post("/", response_model=BookSchema)
-# async def create_book(
-#     book: BookCreate,
-#     db: Session = Depends(get_db)
-# ):
-#     # This endpoint is deprecated - use /with-file instead for proper file upload
-#     raise HTTPException(
-#         status_code=status.HTTP_400_BAD_REQUEST,
-#         detail="Please use /books/with-file endpoint to create books with file uploads"
-#     )
-
-# @router.post("/simple", response_model=BookSchema)
-# async def create_book_simple(
-#     book: BookCreate,
-#     current_user = Depends(get_current_unified_user),
-#     db: Session = Depends(get_db)
-# ):
-#     """Simple book creation endpoint that works with any authenticated user"""
-#     # This endpoint is deprecated - use /with-file instead for proper file upload
-#     raise HTTPException(
-#         status_code=status.HTTP_400_BAD_REQUEST,
-#         detail="Please use /books/with-file endpoint to create books with file uploads"
-#     )
-
-# @router.post("/with-cover", response_model=BookSchema)
-# async def create_book_with_cover(
-#     title: str = Form(...),
-#     description: str = Form(...),
-#     is_free: bool = Form(...),
-#     price: Optional[float] = Form(None),
-#     category_ids: str = Form(...),  # JSON string of category IDs
-#     cover_image: Optional[UploadFile] = File(None),
-#     current_user = Depends(get_current_unified_user),
-#     db: Session = Depends(get_db)
-# ):
-#     import json
-    
-#     # Parse category IDs
-#     try:
-#         category_id_list = json.loads(category_ids)
-#     except json.JSONDecodeError:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Invalid category_ids format. Must be a JSON array."
-#         )
-    
-#     # Create book data
-#     book_data = {
-#         "title": title,
-#         "description": description,
-#         "is_free": is_free,
-#         "price": price,
-#         "category_ids": category_id_list
-#     }
-    
-#     # Validate book data
-#     if is_free and price not in (None, 0):
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Price must be null or 0 for free books"
-#         )
-#     elif not is_free and (price is None or price == 0):
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Price is required for paid books"
-#         )
-    
-#     # Check if book title already exists
-#     if db.query(Book).filter(Book.title == title).first():
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Book title must be unique"
-#         )
-    
-#     # Get categories
-#     categories = db.query(Category).filter(Category.id.in_(category_id_list)).all()
-#     if len(categories) != len(category_id_list):
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="One or more categories not found"
-#         )
-    
-#     # Create book
-#     db_book = Book(
-#         title=title,
-#         description=description,
-#         is_free=is_free,
-#         price=price,
-#         author_id=current_user.id,
-#         categories=categories
-#     )
-    
-#     db.add(db_book)
-#     db.commit()
-#     db.refresh(db_book)
-    
-#     # Handle cover image upload
-#     if cover_image:
-#         cover_url = save_book_cover(cover_image, db_book.id)
-#         db_book.cover_url = cover_url
-#         db.commit()
-#         db.refresh(db_book)
-    
-#     return db_book
-
 @router.post("/with-file", response_model=BookSchema)
 async def create_book_with_file(
     title: str = Form(...),
@@ -393,7 +288,7 @@ async def get_recommended_books(
     current_user = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    # Recommend books based on user interests
+    #  based on user interests
     if not current_user.interests:
         return []
     category_ids = [cat.id for cat in current_user.interests]
@@ -509,25 +404,9 @@ async def like_book(
     db.commit()
     return {"message": message}
 
-@router.post("/{book_id}/save")
-async def save_book(
-    book_id: int,
+@router.get("/saved", response_model=List[BookSchema])
+async def get_saved_books(
     current_user = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    book = db.query(Book).filter(Book.id == book_id).first()
-    if not book:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Book not found"
-        )
-    
-    if book in current_user.saved_books:
-        current_user.saved_books.remove(book)
-        message = "Book unsaved"
-    else:
-        current_user.saved_books.append(book)
-        message = "Book saved"
-    
-    db.commit()
-    return {"message": message}
+    return current_user.saved_books

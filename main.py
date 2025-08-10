@@ -7,10 +7,10 @@ from database import engine
 from models import Base
 import os
 
-# Create database tables
+# Create database 
 Base.metadata.create_all(bind=engine)
 
-# Create uploads directory if it doesn't exist
+# Create uploads folder
 os.makedirs("uploads", exist_ok=True)
 
 app = FastAPI(
@@ -30,7 +30,7 @@ def custom_openapi():
         routes=app.routes,
     )
     
-    # Add Bearer token security scheme
+    #   token security in swagger
     openapi_schema["components"]["securitySchemes"] = {
         "BearerAuth": {
             "type": "http",
@@ -40,7 +40,6 @@ def custom_openapi():
         }
     }
     
-    # Add security requirement to all endpoints that need authentication
     # Define public paths that don't need authentication
     public_paths = {
         "/",
@@ -63,7 +62,7 @@ def custom_openapi():
         "/books/{title}",
     }
     
-    # Define public GET paths (read-only endpoints that don't need auth)
+    # read-only endpoints 
     public_get_paths = {
         "/categories/",
         "/categories/{category_id}"
@@ -72,15 +71,13 @@ def custom_openapi():
     for path in openapi_schema["paths"]:
         for method in openapi_schema["paths"][path]:
             if method.lower() in ["get", "post", "put", "delete", "patch"]:
-                # Skip completely public paths
+
                 if path in public_paths:
                     continue
                 
-                # Skip GET requests for public read-only paths
                 if method.lower() == "get" and path in public_get_paths:
                     continue
                 
-                # Add security requirement for all other endpoints
                 if "security" not in openapi_schema["paths"][path][method]:
                     openapi_schema["paths"][path][method]["security"] = [{"BearerAuth": []}]
     
@@ -89,7 +86,7 @@ def custom_openapi():
 
 app.openapi = custom_openapi
 
-# Configure CORS
+# define cors for browser 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -98,7 +95,7 @@ app.add_middleware(
     allow_headers=["*", "Authorization", "Content-Type"],
 )
 
-# Mount static files for serving uploaded files
+# create upload files inside the folder
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Include routers
@@ -108,12 +105,12 @@ app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(books.router, prefix="/books", tags=["Books"])
 app.include_router(categories.router, prefix="/categories", tags=["Categories"])
 app.include_router(quotes.router, prefix="/quotes", tags=["Quotes"])
-app.include_router(flashes.router, prefix="/flashes", tags=["Flashes"])
+app.include_router(flashes.router, prefix="/flashes", tags=["Flashes writer quotes"])
 
 app.include_router(admin_auth.router, prefix="/admin", tags=["Admin Authentication"])
 app.include_router(publisher_auth.router, prefix="/publisher", tags=["Publisher House"])
 app.include_router(publisher_vacancies.router, prefix="/publisher/vacancies", tags=["Publisher Vacancies"])
-
+#never get 404
 @app.get("/")
 async def root():
     return {

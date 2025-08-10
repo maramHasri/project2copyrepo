@@ -6,13 +6,13 @@ from OTPconfig import GMAIL_USER, GMAIL_APP_PASSWORD
 import random
 
 def generate_otp(length=6):
-    """Generate a random OTP code"""
+#generate otp    
     return ''.join([str(random.randint(0, 9)) for _ in range(length)])
 
 def send_otp_email_gmail(to_email: str, otp_code: str):
-    """Send OTP email using Gmail SMTP"""
+    #Send otp email 
     
-    # Create a more professional HTML email template
+    #  professional HTML email template
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -83,7 +83,7 @@ def send_otp_email_gmail(to_email: str, otp_code: str):
     message.attach(html_part)
     
     try:
-        # Connect to Gmail SMTP server
+        # Connect to  server
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
             server.sendmail(GMAIL_USER, to_email, message.as_string())
