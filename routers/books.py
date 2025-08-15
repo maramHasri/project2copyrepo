@@ -11,7 +11,7 @@ from routers.publisher_auth import get_current_publisher_house_from_token
 router = APIRouter()
 
 @router.post("/with-file", response_model=BookSchema)
-async def create_book_with_file(
+async def create_writer_book_with_file(
     title: str = Form(...),
     description: str = Form(...),
     is_free: bool = Form(...),
@@ -23,12 +23,16 @@ async def create_book_with_file(
     ),
     book_file: UploadFile = File(..., description="PDF file of the book (required)"),
     cover_image: Optional[UploadFile] = File(None, description="Cover image file (optional)"),
-    author_name: Optional[str] = Form(None, description="Author name (required for publishers, auto-filled for writers)"),
     current_user = Depends(get_current_unified_user),
     db: Session = Depends(get_db),
     request: Request = None
 ):
     """Create a book with PDF file upload (required) and optional cover image.
+    
+    This endpoint is EXCLUSIVELY for writers to create books.
+    - Readers and admins are NOT allowed to create books
+    - Publisher houses must use their own endpoint
+    - Author name is automatically set to the writer's username
     
     Category IDs can be provided as:
     - JSON array: [1,2,3]
@@ -36,6 +40,13 @@ async def create_book_with_file(
     - Single value: 1
     """
     import json
+    
+    # Validate that only writers can use this endpoint
+    if not hasattr(current_user, 'role') or current_user.role != UserRole.writer:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint is exclusively for writers. Only users with 'writer' role can create books through this endpoint."
+        )
     
     # Validate book file is PDF
     if book_file.content_type != "application/pdf":
@@ -101,34 +112,10 @@ async def create_book_with_file(
             detail=f"Categories not found: {missing_ids}"
         )
     
-    # Handle author_name logic based on user type
-    if hasattr(current_user, 'role'):
-        # This is a User (reader/writer/admin)
-        if current_user.role == UserRole.writer:
-            # If user is a writer, automatically set author_name to their username
-            final_author_name = current_user.username
-            author_id = current_user.id
-            publisher_house_id = None
-        else:
-            # If user is a reader or admin, require author_name to be provided
-            if not author_name:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Author name is required when creating a book as a non-writer user"
-                )
-            final_author_name = author_name
-            author_id = current_user.id
-            publisher_house_id = None
-    else:
-        # This is a PublisherHouse
-        if not author_name:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Author name is required when creating a book as a publisher"
-            )
-        final_author_name = author_name
-        author_id = None
-        publisher_house_id = current_user.id
+    # Handle author_name logic - user is guaranteed to be a writer at this point
+    final_author_name = current_user.username
+    author_id = current_user.id
+    publisher_house_id = None
     
     # Create book first (without file URL initially)
     # Generate a temporary unique filename for the book
@@ -295,6 +282,15 @@ async def get_recommended_books(
     books = db.query(Book).join(Book.categories).filter(Category.id.in_(category_ids)).all()
     return books
 
+# Get saved/liked books - MUST come before /{title} route
+@router.get("/saved", response_model=List[BookSchema])
+async def get_saved_books(
+    current_user = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all books liked by the current user"""
+    return current_user.liked_books
+
 @router.get("/{title}", response_model=BookSchema)
 async def get_book_by_title(
     title: str,
@@ -403,10 +399,3 @@ async def like_book(
     
     db.commit()
     return {"message": message}
-
-@router.get("/saved", response_model=List[BookSchema])
-async def get_saved_books(
-    current_user = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    return current_user.saved_books

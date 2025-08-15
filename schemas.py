@@ -35,6 +35,7 @@ class User(UserInDB):
     profile_image: Optional[str] = None
     bio: Optional[str] = None
     social_links: Optional[str] = None
+    skills: Optional[str] = None  # JSON string of skills
     # Writer fields
     writer_bio: Optional[str] = None
     published_books_count: int = 0
@@ -42,6 +43,10 @@ class User(UserInDB):
 
     class Config:
         from_attributes = True
+
+# User skills update schema
+class UserSkillsUpdate(BaseModel):
+    skills: List[str]  # List of selected skill names
 
 # Admin schema
 class AdminBase(BaseModel):
@@ -206,18 +211,19 @@ class Book(BookBase):
 # Quote schemas
 class QuoteBase(BaseModel):
     text: str
-    book_id: int
+    book_name: str  # Changed from book_id to book_name
 
     @validator('text')
     def add_smart_quotes(cls, v):
         # Remove any existing quotes at the beginning and end
         v = v.strip()
         if v.startswith('"') and v.endswith('"'):
-            return v  
-        elif v.startswith('"') and v.endswith('"'):
-            return v 
+            return v  # Already has double quotes
+        elif v.startswith("'") and v.endswith("'"):
+            # Convert single quotes to double quotes
+            return f'"{v[1:-1]}"'
         else:
-            
+            # Add double quotes
             return f'"{v}"'
 
 class QuoteCreate(QuoteBase):
@@ -280,7 +286,7 @@ class Comment(CommentBase):
 
 # Vacancy schemas
 class VacancyBase(BaseModel):
-    title: str
+    position: str
     description: Optional[str] = None
     requirements: Optional[str] = None
 

@@ -45,6 +45,9 @@ class User(Base):
     bio = Column(String, nullable=True)
     social_links = Column(String, nullable=True)
     
+    # Skills field - JSON string of user skills
+    skills = Column(Text, nullable=True)  # JSON string of selected skills
+    
     # Writer fields
     writer_bio = Column(Text, nullable=True)
     published_books_count = Column(Integer, default=0)
@@ -148,21 +151,21 @@ class Book(Base):
     liked_by = relationship("User", secondary="user_liked_books", back_populates="liked_books")
     saved_by = relationship("User", secondary="user_saved_books", back_populates="saved_books")
     comments = relationship("Comment", back_populates="book")
-    quotes = relationship("Quote", back_populates="book")
+    # Removed quotes relationship since Quote now uses book_name string
 
 class Quote(Base):
     __tablename__ = "quotes"
 
     id = Column(Integer, primary_key=True, index=True)
     text = Column(Text)
-    book_id = Column(Integer, ForeignKey("books.id"))
+    book_name = Column(String, index=True)  # Changed from book_id to book_name
     author_id = Column(Integer, ForeignKey("users.id"))
     number_of_likes = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
-    book = relationship("Book", back_populates="quotes")
     author = relationship("User", back_populates="quotes")
+    # Removed book relationship since we're using book_name string instead of foreign key
 
 class Flash(Base):
     __tablename__ = "flashes"

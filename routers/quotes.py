@@ -15,13 +15,8 @@ async def create_quote(
     db: Session = Depends(get_db)
 ):
     """Create a quote - any authenticated user can create quotes from any book"""
-    # Check if book exists
-    book = db.query(Book).filter(Book.id == quote.book_id).first()
-    if not book:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Book not found"
-        )
+    # Book validation is now optional - users can create quotes for any book name
+    # No need to check if book exists in database
     
     # Any authenticated user can create quotes
     db_quote = Quote(
@@ -37,14 +32,14 @@ async def create_quote(
 async def get_quotes(
     skip: int = 0,
     limit: int = 10,
-    book_id: int = None,
+    book_name: str = None,
     author_id: int = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(Quote)
     
-    if book_id:
-        query = query.filter(Quote.book_id == book_id)
+    if book_name:
+        query = query.filter(Quote.book_name == book_name)
     if author_id:
         query = query.filter(Quote.author_id == author_id)
     

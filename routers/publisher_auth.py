@@ -2,7 +2,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from database import get_db
-from models import PublisherHouse
+from models import PublisherHouse, Book
 from schemas import (
     PublisherHouseCreate, PublisherHouse as PublisherHouseSchema, 
     PublisherHouseLogin, PublisherHouseToken, PublisherHouseUpdate
@@ -229,4 +229,113 @@ def get_all_publisher_requests(db: Session = Depends(get_db)):
             "state": "active" if p.is_active else "nonactive"
         }
         for p in publishers
-    ] 
+    ]
+
+# Get latest books for a publisher house
+@router.get("/{publisher_house_id}/latest-books")
+async def get_latest_publisher_books(
+    publisher_house_id: int,
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
+    """Get the latest books published by a specific publisher house"""
+    # Verify publisher house exists and is active
+    publisher_house = get_current_publisher_house(publisher_house_id, db)
+    
+    # Get latest books for this publisher house
+    latest_books = db.query(Book).filter(
+        Book.publisher_house_id == publisher_house_id
+    ).order_by(
+        Book.created_at.desc()
+    ).limit(limit).all()
+    
+    # Format the response
+    books_data = []
+    for book in latest_books:
+        book_info = {
+            "id": book.id,
+            "title": book.title,
+            "description": book.description,
+            "is_free": book.is_free,
+            "price": book.price,
+            "cover_image": book.cover_image,
+            "author_name": book.author_name,
+            "created_at": book.created_at,
+            "categories": [
+                {
+                    "id": category.id,
+                    "name": category.name
+                }
+                for category in book.categories
+            ] if book.categories else []
+        }
+        books_data.append(book_info)
+    
+    return {
+        "publisher_house": {
+            "id": publisher_house.id,
+            "name": publisher_house.name,
+            "email": publisher_house.email
+        },
+        "total_books": len(books_data),
+        "latest_books": books_data
+    }
+
+# Public endpoint to get latest books from any publisher house
+@router.get("/public/{publisher_house_id}/latest-books")
+async def get_public_latest_publisher_books(
+    publisher_house_id: int,
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
+    """Get the latest books published by a specific publisher house (public access)"""
+    # Get publisher house (no authentication required)
+    publisher_house = db.query(PublisherHouse).filter(
+        PublisherHouse.id == publisher_house_id,
+        PublisherHouse.is_active == True
+    ).first()
+    
+    if not publisher_house:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Publisher house not found or inactive"
+        )
+    
+    # Get latest books for this publisher house
+    latest_books = db.query(Book).filter(
+        Book.publisher_house_id == publisher_house_id
+    ).order_by(
+        Book.created_at.desc()
+    ).limit(limit).all()
+    
+    # Format the response
+    books_data = []
+    for book in latest_books:
+        book_info = {
+            "id": book.id,
+            "title": book.title,
+            "description": book.description,
+            "is_free": book.is_free,
+            "price": book.price,
+            "cover_image": book.cover_image,
+            "author_name": book.author_name,
+            "created_at": book.created_at,
+            "categories": [
+                {
+                    "id": category.id,
+                    "name": category.name
+                }
+                for category in book.categories
+            ] if book.categories else []
+        }
+        books_data.append(book_info)
+    
+    return {
+        "publisher_house": {
+            "id": publisher_house.id,
+            "name": publisher_house.name,
+            "email": publisher_house.email
+        },
+        "total_books": len(books_data),
+        "latest_books": books_data
+    } 

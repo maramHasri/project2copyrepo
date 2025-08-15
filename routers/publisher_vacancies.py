@@ -18,7 +18,7 @@ async def create_vacancy(
 ):
     """Create a new vacancy for the publisher house"""
     db_vacancy = Vacancy(
-        title=vacancy.title,
+        title=vacancy.position,
         description=vacancy.description,
         requirements=vacancy.requirements,
         publisher_house_id=current_publisher.id
