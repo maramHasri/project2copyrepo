@@ -32,7 +32,7 @@ async def create_category(
     return db_category
 
 @router.get("/", response_model=List[CategorySchema])
-async def get_categories(
+async def get_all_categories(
     skip: int = 0,
     limit: int = 10,
     db: Session = Depends(get_db)

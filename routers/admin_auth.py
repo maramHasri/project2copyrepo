@@ -2,8 +2,8 @@ from datetime import timedelta, datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Admin, AdminRole, AdminAction, PublisherHouse, Vacancy, VacancyAttachment, User, Book
-from schemas import AdminCreate, Admin as AdminSchema, AdminUpdate, LoginRequest, PublisherHouse as PublisherHouseSchema, Vacancy as VacancySchema, User as UserSchema, Book as BookSchema
+from models import Admin, AdminRole, AdminAction, PublisherHouse, Vacancy, VacancyAttachment, User, Book, Quote
+from schemas import AdminCreate, Admin as AdminSchema, AdminUpdate, LoginRequest, PublisherHouse as PublisherHouseSchema, Vacancy as VacancySchema, User as UserSchema, Book as BookSchema, Quote as QuoteSchema
 from security import (
     verify_password,
     get_password_hash,
@@ -16,7 +16,6 @@ from security import (
 
 from typing import Optional, List
 from jose import JWTError, jwt
-import json
 
 router = APIRouter()
 
@@ -110,13 +109,6 @@ async def register_admin(
         )
     
     
-    permissions = {
-        "can_manage_users": True,
-        "can_manage_publishers": True,
-        "can_manage_content": True,
-        "can_manage_system": True
-    }
-    
     hashed_password = get_password_hash(admin_data.password)
     db_admin = Admin(
         username=admin_data.username,
@@ -124,9 +116,7 @@ async def register_admin(
         phone_number=admin_data.phone_number,
         hashed_password=hashed_password,
         role=AdminRole.super_admin, 
-        is_super_admin=True,         # Always true
-        permissions=json.dumps(permissions),
-        **permissions
+        is_super_admin=True         # Always true
     )
     db.add(db_admin)
     db.commit()
@@ -179,13 +169,7 @@ async def admin_login(
         "entity_type": "admin",
         "admin_id": admin.id,
         "username": admin.username,
-        "is_super_admin": admin.is_super_admin,
-        "permissions": {
-            "can_manage_users": admin.can_manage_users,
-            "can_manage_publishers": admin.can_manage_publishers,
-            "can_manage_content": admin.can_manage_content,
-            "can_manage_system": admin.can_manage_system
-        }
+        "is_super_admin": admin.is_super_admin
     }
 
 # Route: Get all publisher registration requests (admin only)
@@ -243,6 +227,14 @@ async def get_all_books(
 ):
     """Get all books (admin only)"""
     books = db.query(Book).offset(skip).limit(limit).all()
+    
+    # Populate publisher_house_name for each book
+    for book in books:
+        if book.publisher_house:
+            book.publisher_house_name = book.publisher_house.name
+        else:
+            book.publisher_house_name = None
+    
     return books
 
 # Get specific publisher by ID (admin only)
@@ -261,43 +253,6 @@ async def get_publisher_by_id(
         )
     return publisher
 
-# Update Admin (Any admin can update other admins)
-@router.put("/{admin_id}", response_model=AdminSchema)
-async def update_admin(
-    admin_id: int,
-    admin_update: AdminUpdate,
-    current_admin: Admin = Depends(get_current_admin),  # Any admin can update other admins
-    db: Session = Depends(get_db)
-):
-    """Update admin (any admin can update other admins)"""
-    admin = db.query(Admin).filter(Admin.id == admin_id).first()
-    if not admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Admin not found"
-        )
-    
-    # Update fields (no role updates since all admins are super admins)
-    if admin_update.phone_number is not None:
-        admin.phone_number = admin_update.phone_number
-    
-    # All admins maintain full permissions
-    permissions = {
-        "can_manage_users": True,
-        "can_manage_publishers": True,
-        "can_manage_content": True,
-        "can_manage_system": True
-    }
-    admin.permissions = json.dumps(permissions)
-    admin.can_manage_users = True
-    admin.can_manage_publishers = True
-    admin.can_manage_content = True
-    admin.can_manage_system = True
-    
-    db.commit()
-    db.refresh(admin)
-    
-    return admin
 
 # Delete Book (Admin only)
 @router.delete("/books/{book_id}")
@@ -427,3 +382,33 @@ async def get_user_statistics(
         "verified_users": verified_users,
         "verification_rate": round((verified_users / total_users * 100), 2) if total_users > 0 else 0
     } 
+
+# Admin Quote Management Endpoints
+@router.get("/quotes", response_model=List[QuoteSchema])
+async def admin_get_all_quotes(
+    skip: int = 0,
+    limit: int = 100,
+    current_admin: Admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin endpoint: Get all quotes with pagination"""
+    quotes = db.query(Quote).offset(skip).limit(limit).all()
+    return quotes
+
+@router.delete("/quotes/{quote_id}")
+async def admin_delete_quote(
+    quote_id: int,
+    current_admin: Admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin endpoint: Delete any quote by ID"""
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Quote not found"
+        )
+    
+    db.delete(quote)
+    db.commit()
+    return {"message": "Quote deleted successfully by admin"} 

@@ -94,12 +94,7 @@ def create_sample_data():
             phone_number="123456789",
             hashed_password=admin_password,
             role=AdminRole.super_admin,
-            is_super_admin=True,
-            permissions='{"can_manage_users": true, "can_manage_publishers": true, "can_manage_content": true, "can_manage_system": true}',
-            can_manage_users=True,
-            can_manage_publishers=True,
-            can_manage_content=True,
-            can_manage_system=True
+            is_super_admin=True
         )
         db.add(admin)
         db.commit()

@@ -150,6 +150,12 @@ async def create_writer_book_with_file(
     db.commit()
     db.refresh(db_book)
 
+    # Populate publisher_house_name before returning
+    if db_book.publisher_house:
+        db_book.publisher_house_name = db_book.publisher_house.name
+    else:
+        db_book.publisher_house_name = None
+
     return db_book
 
 @router.post("/publisher/books/create", response_model=BookSchema)
@@ -254,6 +260,13 @@ async def create_publisher_book_with_file(
         db_book.cover_image = cover_path
     db.commit()
     db.refresh(db_book)
+    
+    # Populate publisher_house_name before returning
+    if db_book.publisher_house:
+        db_book.publisher_house_name = db_book.publisher_house.name
+    else:
+        db_book.publisher_house_name = None
+    
     return db_book
 
 
@@ -264,10 +277,18 @@ async def get_books(
     limit: int = 10,
     db: Session = Depends(get_db)
 ):
-    query = db.query(Book)
+    query = db.query(Book).join(Book.publisher_house, isouter=True)
     if title:
         query = query.filter(Book.title.ilike(f"%{title}%"))
     books = query.offset(skip).limit(limit).all()
+    
+    # Populate publisher_house_name for each book
+    for book in books:
+        if book.publisher_house:
+            book.publisher_house_name = book.publisher_house.name
+        else:
+            book.publisher_house_name = None
+    
     return books
 
 @router.get("/recommended", response_model=List[BookSchema])
@@ -280,6 +301,14 @@ async def get_recommended_books(
         return []
     category_ids = [cat.id for cat in current_user.interests]
     books = db.query(Book).join(Book.categories).filter(Category.id.in_(category_ids)).all()
+    
+    # Populate publisher_house_name for each book
+    for book in books:
+        if book.publisher_house:
+            book.publisher_house_name = book.publisher_house.name
+        else:
+            book.publisher_house_name = None
+    
     return books
 
 # Get saved/liked books - MUST come before /{title} route
@@ -289,7 +318,16 @@ async def get_saved_books(
     db: Session = Depends(get_db)
 ):
     """Get all books liked by the current user"""
-    return current_user.liked_books
+    books = current_user.liked_books
+    
+    # Populate publisher_house_name for each book
+    for book in books:
+        if book.publisher_house:
+            book.publisher_house_name = book.publisher_house.name
+        else:
+            book.publisher_house_name = None
+    
+    return books
 
 @router.get("/{title}", response_model=BookSchema)
 async def get_book_by_title(
@@ -302,6 +340,13 @@ async def get_book_by_title(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Book not found"
         )
+    
+    # Populate publisher_house_name
+    if book.publisher_house:
+        book.publisher_house_name = book.publisher_house.name
+    else:
+        book.publisher_house_name = None
+    
     return book
 
 @router.put("/{title}", response_model=BookSchema)
@@ -352,6 +397,13 @@ async def update_book_by_title(
     
     db.commit()
     db.refresh(db_book)
+    
+    # Populate publisher_house_name before returning
+    if db_book.publisher_house:
+        db_book.publisher_house_name = db_book.publisher_house.name
+    else:
+        db_book.publisher_house_name = None
+    
     return db_book
 
 @router.delete("/{book_id}")

@@ -61,7 +61,6 @@ class AdminCreate(AdminBase):
 class AdminUpdate(BaseModel):
     phone_number: Optional[str] = None
     # Removed role field since all admins are super admins
-    permissions: Optional[str] = None
 
 class Admin(AdminBase):
     id: int
@@ -70,10 +69,6 @@ class Admin(AdminBase):
     is_super_admin: bool
     created_at: datetime
     last_login: Optional[datetime] = None
-    can_manage_users: bool
-    can_manage_publishers: bool
-    can_manage_content: bool
-    can_manage_system: bool
 
     class Config:
         from_attributes = True
@@ -201,7 +196,7 @@ class Book(BookBase):
     id: int
     author_name: Optional[str] = None  
     author_id: Optional[int] = None
-    publisher_house_id: Optional[int] = None
+    publisher_house_name: Optional[str] = None  # Changed from publisher_house_id to publisher_house_name
     created_at: datetime
     categories: List[Category]
 
@@ -294,10 +289,10 @@ class VacancyCreate(VacancyBase):
     pass
 
 class VacancyUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    requirements: Optional[str] = None
-    is_active: Optional[bool] = None
+    position: Optional[str]
+    description: Optional[str]
+    requirements: Optional[str]
+    is_active: Optional[bool]
 
 class Vacancy(VacancyBase):
     id: int

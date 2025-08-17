@@ -25,9 +25,9 @@ def seed_database():
     
     try:
         # Check if data already exists
-        if db.query(User).count() > 0:
-            print("⚠️  Database already has data. Skipping seeding.")
-            return
+        # if db.query(User).count() > 0:
+        #     print("⚠️  Database already has data. Skipping seeding.")
+        #     return
         
         print("📚 Creating categories...")
         categories = create_categories(db)
@@ -51,7 +51,10 @@ def seed_database():
         create_comments(db, users, books)
         
         print("💭 Creating quotes...")
-        create_quotes(db, users, books)
+        if db.query(Quote).count() == 0:
+            create_quotes(db, users, books)
+        else:
+            print("   ✅ Quotes already exist, skipping...")
         
         print("⚡ Creating flashes...")
         create_flashes(db, users)
@@ -98,17 +101,7 @@ def create_admins(db: Session):
             phone_number="123456789",
             hashed_password=get_password_hash("admin123"),
             role=AdminRole.super_admin,
-            is_super_admin=True,
-            permissions=json.dumps({
-                "can_manage_users": True,
-                "can_manage_publishers": True,
-                "can_manage_content": True,
-                "can_manage_system": True
-            }),
-            can_manage_users=True,
-            can_manage_publishers=True,
-            can_manage_content=True,
-            can_manage_system=True
+            is_super_admin=True
         ),
         Admin(
             username="superadmin",
@@ -116,17 +109,7 @@ def create_admins(db: Session):
             phone_number="987654321",
             hashed_password=get_password_hash("super123"),
             role=AdminRole.super_admin,
-            is_super_admin=True,
-            permissions=json.dumps({
-                "can_manage_users": True,
-                "can_manage_publishers": True,
-                "can_manage_content": True,
-                "can_manage_system": True
-            }),
-            can_manage_users=True,
-            can_manage_publishers=True,
-            can_manage_content=True,
-            can_manage_system=True
+            is_super_admin=True
         )
     ]
     

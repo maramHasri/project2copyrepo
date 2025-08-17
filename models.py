@@ -77,12 +77,6 @@ class Admin(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
     
-    permissions = Column(Text, nullable=True)  
-    can_manage_users = Column(Boolean, default=True)    
-    can_manage_publishers = Column(Boolean, default=True) 
-    can_manage_content = Column(Boolean, default=True)   
-    can_manage_system = Column(Boolean, default=True)    
-    
     # Relationships
     admin_actions = relationship("AdminAction", back_populates="admin")
 
@@ -198,6 +192,7 @@ class Vacancy(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True)
+    position = Column(String, index=True)  # Added missing position field
     description = Column(Text, nullable=True)
     requirements = Column(Text, nullable=True)
     publisher_house_id = Column(Integer, ForeignKey("publisher_houses.id"))
