@@ -51,7 +51,7 @@ class User(Base):
     # Writer fields
     writer_bio = Column(Text, nullable=True)
     published_books_count = Column(Integer, default=0)
-    is_featured_writer = Column(Boolean, default=False)
+    is_spesial_writer = Column(Boolean, default=False)
     
 
     interests = relationship("Category", secondary=user_interests, back_populates="interested_users")
@@ -228,7 +228,7 @@ user_saved_books = Table(
     Column('book_id', Integer, ForeignKey('books.id'))
 )
 
-publisher_featured_writers = Table(
+publisher_special_writers = Table(
     'publisher_featured_writers',
     Base.metadata,
     Column('publisher_house_id', Integer, ForeignKey('publisher_houses.id')),

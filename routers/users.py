@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from database import get_db
 from models import User, Category, PublisherHouse, Book, UserRole
-from schemas import UserUpdate, User as UserSchema, UserInterests, PublisherHouseCreate, FileUploadResponse, Book as BookSchema, UserSkillsUpdate
+from schemas import UserUpdate, User as UserSchema, UserInterests, PublisherHouseCreate, FileUploadResponse, Book as BookSchema, UserSkillsUpdate, PublisherHouse as PublisherHouseSchema
 from security import get_current_active_user, check_user_role
 import json
 
@@ -238,4 +238,42 @@ async def get_writer(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Writer not found"
         )
-    return writer 
+    return writer
+
+@router.get("/publisher-houses", response_model=List[PublisherHouseSchema])
+async def get_all_publisher_houses(
+    db: Session = Depends(get_db)
+):
+    """Get all publisher houses"""
+    publisher_houses = db.query(PublisherHouse).filter(PublisherHouse.is_active == True).all()
+    return publisher_houses
+
+@router.get("/publisher-houses/{publisher_id}/books", response_model=List[BookSchema])
+async def get_publisher_books(
+    publisher_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get all books of a specific publisher house by ID"""
+    # First check if publisher house exists
+    publisher_house = db.query(PublisherHouse).filter(
+        PublisherHouse.id == publisher_id,
+        PublisherHouse.is_active == True
+    ).first()
+    
+    if not publisher_house:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Publisher house not found"
+        )
+    
+    # Get all books for this publisher house with publisher relationship loaded
+    books = db.query(Book).filter(Book.publisher_house_id == publisher_id).all()
+    
+    # Populate publisher_house_name for each book
+    for book in books:
+        if book.publisher_house:
+            book.publisher_house_name = book.publisher_house.name
+        else:
+            book.publisher_house_name = None
+    
+    return books 
