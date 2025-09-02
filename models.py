@@ -51,7 +51,7 @@ class User(Base):
     # Writer fields
     writer_bio = Column(Text, nullable=True)
     published_books_count = Column(Integer, default=0)
-    is_spesial_writer = Column(Boolean, default=False)
+    is_featured_writer = Column(Boolean, default=False)
     
 
     interests = relationship("Category", secondary=user_interests, back_populates="interested_users")
@@ -146,6 +146,11 @@ class Book(Base):
     saved_by = relationship("User", secondary="user_saved_books", back_populates="saved_books")
     comments = relationship("Comment", back_populates="book")
     # Removed quotes relationship since Quote now uses book_name string
+    
+    @property
+    def cover_url(self):
+        """Map cover_image to cover_url for API compatibility"""
+        return self.cover_image
 
 class Quote(Base):
     __tablename__ = "quotes"

@@ -176,7 +176,7 @@ class BookBase(BaseModel):
     description: str
     is_free: bool
     price: Optional[float] = None
-    cover_url: Optional[HttpUrl] = None
+    cover_url: Optional[str] = None
     book_file: str  # Required 
 
 class BookCreate(BookBase):
@@ -189,7 +189,7 @@ class BookUpdate(BaseModel):
     is_free: Optional[bool] = None  
     price: Optional[float] = None    
     category_ids: Optional[List[int]] = None
-    cover_url: Optional[HttpUrl] = None
+    cover_url: Optional[str] = None
     author_name: Optional[str] = None  # Allow updating author name
 
 class Book(BookBase):
