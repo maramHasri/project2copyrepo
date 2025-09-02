@@ -362,7 +362,7 @@ async def update_book_by_title(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Book not found"
         )
-    if db_book.author_id != current_user.id and current_user.role != UserRole.admin:
+    if db_book.author_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to update this book"
@@ -419,7 +419,7 @@ async def delete_book(
             detail="Book not found"
         )
     
-    if db_book.author_id != current_user.id and current_user.role != UserRole.admin:
+    if db_book.author_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to delete this book"

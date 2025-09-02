@@ -171,25 +171,20 @@ def check_user_role(required_role: UserRole):
 
 def check_admin_role():
     async def admin_checker(current_user: User = Depends(get_current_active_user)) -> User:
-        print(f"DEBUG: Checking admin role for user {current_user.username}")
-        print(f"DEBUG: User role is: {current_user.role} (type: {type(current_user.role)})")
-        print(f"DEBUG: Expected role: {UserRole.admin}")
-        if current_user.role != UserRole.admin:
-            print(f"DEBUG: Role mismatch! User has {current_user.role}, expected {UserRole.admin}")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Operation requires admin role. Current role: {current_user.role}"
-            )
-        print("DEBUG: Admin role check passed")
-        return current_user
+        # Note: Admin functionality is handled through separate Admin model, not User model
+        # This function should not be used for admin operations
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin operations should use admin authentication, not user authentication"
+        )
     return admin_checker
 
 def check_writer_or_admin_role():
     async def writer_admin_checker(current_user: User = Depends(get_current_active_user)) -> User:
-        if current_user.role not in [UserRole.writer, UserRole.admin]:
+        if current_user.role != UserRole.writer:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Operation requires writer or admin role"
+                detail="Operation requires writer role"
             )
         return current_user
     return writer_admin_checker 

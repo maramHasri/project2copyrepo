@@ -227,6 +227,7 @@ class QuoteCreate(QuoteBase):
 class Quote(QuoteBase):
     id: int
     author_id: int
+    user_name: Optional[str] = None
     number_of_likes: int
     created_at: datetime
 

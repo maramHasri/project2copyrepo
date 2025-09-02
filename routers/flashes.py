@@ -89,7 +89,7 @@ async def delete_flash(
         )
     
     # Only the author or admin can delete
-    if flash.author_id != current_user.id and current_user.role != UserRole.admin:
+    if flash.author_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only the flash author or admin can delete this flash"

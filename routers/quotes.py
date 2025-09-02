@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 from database import get_db
 from models import Quote, User, Book
@@ -26,6 +26,10 @@ async def create_quote(
     db.add(db_quote)
     db.commit()
     db.refresh(db_quote)
+    
+    # Load the author relationship to populate author_name
+    db_quote = db.query(Quote).options(joinedload(Quote.author)).filter(Quote.id == db_quote.id).first()
+    
     return db_quote
 
 @router.get("/", response_model=List[QuoteSchema])

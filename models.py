@@ -165,6 +165,11 @@ class Quote(Base):
     # Relationships
     author = relationship("User", back_populates="quotes")
     # Removed book relationship since we're using book_name string instead of foreign key
+    
+    @property
+    def user_name(self):
+        """Get the user's username from the relationship"""
+        return self.author.username if self.author else None
 
 class Flash(Base):
     __tablename__ = "flashes"
