@@ -60,6 +60,7 @@ class User(Base):
     saved_books = relationship("Book", secondary="user_saved_books", back_populates="saved_by")
     comments = relationship("Comment", back_populates="user")
     quotes = relationship("Quote", back_populates="author")
+    liked_quotes = relationship("Quote", secondary="user_liked_quotes", back_populates="liked_by")
     flashes = relationship("Flash", back_populates="author")
 
 class Admin(Base):
@@ -164,6 +165,7 @@ class Quote(Base):
     
     # Relationships
     author = relationship("User", back_populates="quotes")
+    liked_by = relationship("User", secondary="user_liked_quotes", back_populates="liked_quotes")
     # Removed book relationship since we're using book_name string instead of foreign key
     
     @property
@@ -243,6 +245,13 @@ publisher_special_writers = Table(
     Base.metadata,
     Column('publisher_house_id', Integer, ForeignKey('publisher_houses.id')),
     Column('writer_id', Integer, ForeignKey('users.id'))
+)
+
+user_liked_quotes = Table(
+    'user_liked_quotes',
+    Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id')),
+    Column('quote_id', Integer, ForeignKey('quotes.id'))
 ) 
 
  

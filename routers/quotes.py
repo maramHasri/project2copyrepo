@@ -50,6 +50,19 @@ async def get_quotes(
     quotes = query.order_by(Quote.number_of_likes.desc()).offset(skip).limit(limit).all()
     return quotes
 
+@router.get("/liked", response_model=List[QuoteSchema])
+async def get_liked_quotes(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all quotes that the current user has liked"""
+    # Get all quotes that the current user has liked
+    liked_quotes = db.query(Quote).options(joinedload(Quote.author)).filter(
+        Quote.liked_by.any(User.id == current_user.id)
+    ).all()
+    
+    return liked_quotes
+
 @router.get("/{quote_id}", response_model=QuoteSchema)
 async def get_quote(
     quote_id: int,
@@ -76,9 +89,20 @@ async def like_quote(
             detail="Quote not found"
         )
     
-    quote.number_of_likes += 1
+    # Check if user already liked this quote
+    if quote in current_user.liked_quotes:
+        # Unlike the quote
+        current_user.liked_quotes.remove(quote)
+        quote.number_of_likes -= 1
+        message = "Quote unliked"
+    else:
+        # Like the quote
+        current_user.liked_quotes.append(quote)
+        quote.number_of_likes += 1
+        message = "Quote liked"
+    
     db.commit()
-    return {"message": "Quote liked successfully"}
+    return {"message": message}
 
 @router.delete("/{quote_id}")
 async def delete_quote(
