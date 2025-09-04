@@ -62,6 +62,7 @@ class User(Base):
     quotes = relationship("Quote", back_populates="author")
     liked_quotes = relationship("Quote", secondary="user_liked_quotes", back_populates="liked_by")
     flashes = relationship("Flash", back_populates="author")
+    cv_applications = relationship("CVApplication", back_populates="user")
 
 class Admin(Base):
     __tablename__ = "admins"
@@ -214,6 +215,7 @@ class Vacancy(Base):
     # Relationships
     publisher_house = relationship("PublisherHouse", back_populates="vacancies")
     attachments = relationship("VacancyAttachment", back_populates="vacancy")
+    cv_applications = relationship("CVApplication", back_populates="vacancy")
 
 class VacancyAttachment(Base):
     __tablename__ = "vacancy_attachments"
@@ -224,6 +226,31 @@ class VacancyAttachment(Base):
     attachment_type = Column(String)  # e.g., "google_form", "pdf", etc.
     
     vacancy = relationship("Vacancy", back_populates="attachments")
+
+class CVApplication(Base):
+    __tablename__ = "cv_applications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    vacancy_id = Column(Integer, ForeignKey("vacancies.id"))
+    cv_file_path = Column(String, nullable=False)  # Path to uploaded CV file
+    cover_letter = Column(Text, nullable=True)  # Optional cover letter
+    status = Column(String, default="pending")  # pending, reviewed, accepted, rejected
+    applied_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="cv_applications")
+    vacancy = relationship("Vacancy", back_populates="cv_applications")
+    
+    @property
+    def user_name(self):
+        """Get the user's username from the relationship"""
+        return self.user.username if self.user else None
+    
+    @property
+    def vacancy_title(self):
+        """Get the vacancy title from the relationship"""
+        return self.vacancy.title if self.vacancy else None
 
 
 user_liked_books = Table(

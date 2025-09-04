@@ -319,6 +319,29 @@ class VacancyAttachment(VacancyAttachmentBase):
     class Config:
         from_attributes = True
 
+# CV Application schemas
+class CVApplicationBase(BaseModel):
+    cover_letter: Optional[str] = None
+
+class CVApplicationCreate(CVApplicationBase):
+    pass
+
+class CVApplicationUpdate(BaseModel):
+    status: Optional[str] = None  # pending, reviewed, accepted, rejected
+
+class CVApplication(CVApplicationBase):
+    id: int
+    user_id: int
+    vacancy_id: int
+    cv_file_path: str
+    status: str
+    applied_at: datetime
+    user_name: Optional[str] = None
+    vacancy_title: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
 # Token schemas
 class Token(BaseModel):
     access_token: str

@@ -160,10 +160,10 @@ async def create_writer_book_with_file(
 
 @router.post("/publisher/books/create", response_model=BookSchema)
 async def create_publisher_book_with_file(
-    title: str = Form(...),
-    description: str = Form(...),
-    is_free: bool = Form(...),
-    price: Optional[float] = Form(None),
+    title: str = Form(..., description="Book title (required)"),
+    description: str = Form(..., description="Book description (required)"),
+    is_free: bool = Form(..., description="Whether the book is free (required)"),
+    price: Optional[float] = Form(None, description="Book price (required if not free)"),
     category_ids: str = Form(
         ..., 
         description="Category IDs. Accepts: [1,2,3] (JSON array), 1,2,3 (comma-separated), or 1 (single value)",
@@ -177,12 +177,22 @@ async def create_publisher_book_with_file(
     request: Request = None
 ):
     import json
+    
     # Validate book file is PDF
-    if book_file.content_type != "application/pdf":
+    if not book_file or book_file.content_type != "application/pdf":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Book file must be a PDF file. Only PDF files are allowed."
         )
+    
+    # Validate cover image if provided
+    if cover_image and cover_image.filename:
+        allowed_image_types = {"image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"}
+        if cover_image.content_type not in allowed_image_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cover image must be one of: {', '.join(allowed_image_types)}. Got: {cover_image.content_type}"
+            )
     # Parse category IDs
     try:
         try:

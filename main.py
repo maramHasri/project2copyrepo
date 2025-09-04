@@ -40,6 +40,31 @@ def custom_openapi():
         }
     }
     
+    # Ensure proper multipart form data handling for file uploads
+    if "components" not in openapi_schema:
+        openapi_schema["components"] = {}
+    if "schemas" not in openapi_schema["components"]:
+        openapi_schema["components"]["schemas"] = {}
+    
+    # Add explicit multipart form data schema for better browser compatibility
+    for path in openapi_schema["paths"]:
+        for method in openapi_schema["paths"][path]:
+            if method.lower() == "post" and "requestBody" in openapi_schema["paths"][path][method]:
+                request_body = openapi_schema["paths"][path][method]["requestBody"]
+                if "content" in request_body and "multipart/form-data" in request_body["content"]:
+                    # Ensure proper encoding for file uploads
+                    multipart_content = request_body["content"]["multipart/form-data"]
+                    if "encoding" not in multipart_content:
+                        multipart_content["encoding"] = {}
+                    
+                    # Add encoding for file fields to ensure proper handling
+                    if "schema" in multipart_content and "properties" in multipart_content["schema"]:
+                        for prop_name, prop_schema in multipart_content["schema"]["properties"].items():
+                            if prop_schema.get("format") == "binary":
+                                multipart_content["encoding"][prop_name] = {
+                                    "contentType": "application/octet-stream"
+                                }
+    
     # Define public paths that don't need authentication
     public_paths = {
         "/",

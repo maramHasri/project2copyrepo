@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Form, Request
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, status, Form, Request, UploadFile, File
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from database import get_db
-from models import User, Category, PublisherHouse, Book, UserRole
-from schemas import UserUpdate, User as UserSchema, UserInterests, PublisherHouseCreate, FileUploadResponse, Book as BookSchema, UserSkillsUpdate, PublisherHouse as PublisherHouseSchema
+from models import User, Category, PublisherHouse, Book, UserRole, Vacancy, CVApplication
+from schemas import UserUpdate, User as UserSchema, UserInterests, PublisherHouseCreate, FileUploadResponse, Book as BookSchema, UserSkillsUpdate, PublisherHouse as PublisherHouseSchema, Vacancy as VacancySchema, CVApplication as CVApplicationSchema, CVApplicationCreate
 from security import get_current_active_user, check_user_role
+from file_upload import save_cv_file
 import json
 
 router = APIRouter()
@@ -276,4 +277,93 @@ async def get_publisher_books(
         else:
             book.publisher_house_name = None
     
-    return books 
+    return books
+
+@router.get("/vacancies", response_model=List[VacancySchema])
+async def get_all_vacancies(
+    skip: int = 0,
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
+    """Get all active vacancies"""
+    vacancies = db.query(Vacancy).filter(Vacancy.is_active == True).offset(skip).limit(limit).all()
+    return vacancies
+
+@router.get("/vacancies/{vacancy_id}", response_model=VacancySchema)
+async def get_vacancy_by_id(
+    vacancy_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get vacancy details by ID"""
+    vacancy = db.query(Vacancy).filter(Vacancy.id == vacancy_id).first()
+    if not vacancy:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vacancy not found"
+        )
+    return vacancy
+
+@router.post("/vacancies/{vacancy_id}/apply", response_model=CVApplicationSchema)
+async def apply_to_vacancy(
+    vacancy_id: int,
+    cv_file: UploadFile = File(..., description="CV file (PDF, DOC, DOCX)"),
+    cover_letter: Optional[str] = Form(None, description="Optional cover letter"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Apply to a vacancy by uploading CV and optional cover letter"""
+    # Check if vacancy exists and is active
+    vacancy = db.query(Vacancy).filter(Vacancy.id == vacancy_id, Vacancy.is_active == True).first()
+    if not vacancy:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vacancy not found or not active"
+        )
+    
+    # Check if user already applied to this vacancy
+    existing_application = db.query(CVApplication).filter(
+        CVApplication.user_id == current_user.id,
+        CVApplication.vacancy_id == vacancy_id
+    ).first()
+    
+    if existing_application:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You have already applied to this vacancy"
+        )
+    
+    # Save CV file
+    cv_file_path = save_cv_file(cv_file, current_user.id, vacancy_id)
+    
+    # Create CV application
+    cv_application = CVApplication(
+        user_id=current_user.id,
+        vacancy_id=vacancy_id,
+        cv_file_path=cv_file_path,
+        cover_letter=cover_letter,
+        status="pending"
+    )
+    
+    db.add(cv_application)
+    db.commit()
+    db.refresh(cv_application)
+    
+    # Load relationships for response
+    cv_application = db.query(CVApplication).options(
+        joinedload(CVApplication.user),
+        joinedload(CVApplication.vacancy)
+    ).filter(CVApplication.id == cv_application.id).first()
+    
+    return cv_application
+
+@router.get("/my-applications", response_model=List[CVApplicationSchema])
+async def get_my_applications(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all CV applications submitted by the current user"""
+    applications = db.query(CVApplication).options(
+        joinedload(CVApplication.vacancy)
+    ).filter(CVApplication.user_id == current_user.id).all()
+    
+    return applications 

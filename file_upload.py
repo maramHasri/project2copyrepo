@@ -23,6 +23,9 @@ BOOK_COVERS_DIR.mkdir(exist_ok=True)
 BOOK_FILES_DIR = UPLOAD_DIR / "books"
 BOOK_FILES_DIR.mkdir(exist_ok=True)
 
+CV_FILES_DIR = UPLOAD_DIR / "cvs"
+CV_FILES_DIR.mkdir(exist_ok=True)
+
 PUBLISHER_LOGOS_DIR = IMAGES_DIR / "publisher_logos"
 PUBLISHER_LOGOS_DIR.mkdir(exist_ok=True)
 
@@ -39,9 +42,16 @@ ALLOWED_BOOK_TYPES = {
     "application/pdf"  
 }
 
+ALLOWED_CV_TYPES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+}
+
 # 50ميجا و ويادة
 MAX_IMAGE_SIZE = 5 * 1024 * 1024
 MAX_BOOK_SIZE = 130 * 1024 * 1024
+MAX_CV_SIZE = 10 * 1024 * 1024  # 10MB for CV files
 
 def validate_image_file(file: UploadFile) -> None:
     if not file.content_type in ALLOWED_IMAGE_TYPES:
@@ -77,6 +87,24 @@ def validate_book_file(file: UploadFile) -> None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"file size {file_size} bytes exceeds maximum allowed size of {MAX_BOOK_SIZE} bytes"
+        )
+
+def validate_cv_file(file: UploadFile) -> None:
+    if not file.content_type in ALLOWED_CV_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File type {file.content_type} not allowed. Allowed types: {', '.join(ALLOWED_CV_TYPES)}"
+        )
+    
+    # Check file size
+    file.file.seek(0, 2)  # Seek to end
+    file_size = file.file.tell()
+    file.file.seek(0)  # Reset to beginning
+    
+    if file_size > MAX_CV_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"CV file size {file_size} bytes exceeds maximum allowed size of {MAX_CV_SIZE} bytes"
         )
 
 
@@ -153,6 +181,25 @@ def save_book_file(file: UploadFile, book_id: int) -> str:
     
     # Return relative URL
     return f"/uploads/books/{filename}"
+
+def save_cv_file(file: UploadFile, user_id: int, vacancy_id: int) -> str:
+    """Save CV file and return the file URL"""
+    validate_cv_file(file)
+    
+    # Generate unique filename
+    unique_id = str(uuid.uuid4())[:8]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    file_extension = Path(file.filename).suffix if file.filename else ".pdf"
+    filename = f"cv_user_{user_id}_vacancy_{vacancy_id}_{timestamp}_{unique_id}{file_extension}"
+    
+    file_path = CV_FILES_DIR / filename
+    
+    # Save file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Return relative URL
+    return f"/uploads/cvs/{filename}"
 
 def delete_file(file_url: str) -> bool:
     """Delete a file by its URL"""

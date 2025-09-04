@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 from database import get_db
-from models import Vacancy, VacancyAttachment, PublisherHouse
-from schemas import VacancyCreate, Vacancy as VacancySchema, VacancyUpdate, VacancyAttachmentCreate
+from models import Vacancy, VacancyAttachment, PublisherHouse, CVApplication
+from schemas import VacancyCreate, Vacancy as VacancySchema, VacancyUpdate, VacancyAttachmentCreate, CVApplication as CVApplicationSchema
 from security import check_admin_role
 from routers.publisher_auth import get_current_publisher_house_from_token
 
@@ -231,4 +231,141 @@ async def delete_vacancy(
 #             detail="Vacancy not found"
 #         )
     
-#     return vacancy 
+#     return vacancy
+
+# Publisher CV Application Management
+@router.get("/{vacancy_id}/applications", response_model=List[CVApplicationSchema])
+async def get_vacancy_applications(
+    vacancy_id: int,
+    current_publisher: PublisherHouse = Depends(get_current_publisher_house_from_token),
+    db: Session = Depends(get_db)
+):
+    """Get all CV applications for a specific vacancy (publisher only)"""
+    # Check if vacancy exists and belongs to this publisher
+    vacancy = db.query(Vacancy).filter(
+        Vacancy.id == vacancy_id,
+        Vacancy.publisher_house_id == current_publisher.id
+    ).first()
+    
+    if not vacancy:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vacancy not found or you don't have permission to view it"
+        )
+    
+    # Get all applications for this vacancy
+    applications = db.query(CVApplication).options(
+        joinedload(CVApplication.user)
+    ).filter(CVApplication.vacancy_id == vacancy_id).all()
+    
+    return applications
+
+@router.get("/applications/all", response_model=List[CVApplicationSchema])
+async def get_all_my_vacancy_applications(
+    current_publisher: PublisherHouse = Depends(get_current_publisher_house_from_token),
+    db: Session = Depends(get_db)
+):
+    """Get all CV applications for all vacancies of this publisher"""
+    # Get all vacancy IDs for this publisher
+    vacancy_ids = db.query(Vacancy.id).filter(
+        Vacancy.publisher_house_id == current_publisher.id
+    ).all()
+    vacancy_ids = [v[0] for v in vacancy_ids]
+    
+    if not vacancy_ids:
+        return []
+    
+    # Get all applications for these vacancies
+    applications = db.query(CVApplication).options(
+        joinedload(CVApplication.user),
+        joinedload(CVApplication.vacancy)
+    ).filter(CVApplication.vacancy_id.in_(vacancy_ids)).all()
+    
+    return applications
+
+@router.put("/applications/{application_id}/status")
+async def update_application_status(
+    application_id: int,
+    status: str,
+    current_publisher: PublisherHouse = Depends(get_current_publisher_house_from_token),
+    db: Session = Depends(get_db)
+):
+    """Update the status of a CV application (publisher only)"""
+    # Validate status
+    valid_statuses = ["pending", "reviewed", "accepted", "rejected"]
+    if status not in valid_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+        )
+    
+    # Get the application
+    application = db.query(CVApplication).filter(CVApplication.id == application_id).first()
+    if not application:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found"
+        )
+    
+    # Check if the vacancy belongs to this publisher
+    vacancy = db.query(Vacancy).filter(
+        Vacancy.id == application.vacancy_id,
+        Vacancy.publisher_house_id == current_publisher.id
+    ).first()
+    
+    if not vacancy:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to update this application"
+        )
+    
+    # Update status
+    application.status = status
+    db.commit()
+    
+    return {"message": f"Application status updated to {status}"}
+
+@router.get("/vacancies-with-applications")
+async def get_vacancies_with_applications(
+    current_publisher: PublisherHouse = Depends(get_current_publisher_house_from_token),
+    db: Session = Depends(get_db)
+):
+    """Get all vacancies with their application requests for this publisher house"""
+    # Get all vacancies for this publisher with their applications
+    vacancies = db.query(Vacancy).options(
+        joinedload(Vacancy.cv_applications).joinedload(CVApplication.user)
+    ).filter(Vacancy.publisher_house_id == current_publisher.id).all()
+    
+    # Format the response
+    result = []
+    for vacancy in vacancies:
+        vacancy_data = {
+            "vacancy": {
+                "id": vacancy.id,
+                "title": vacancy.title,
+                "position": vacancy.position,
+                "description": vacancy.description,
+                "requirements": vacancy.requirements,
+                "is_active": vacancy.is_active,
+                "created_at": vacancy.created_at,
+                "publisher_house_id": vacancy.publisher_house_id
+            },
+            "applications": []
+        }
+        
+        # Add applications for this vacancy
+        for application in vacancy.cv_applications:
+            application_data = {
+                "id": application.id,
+                "user_id": application.user_id,
+                "user_name": application.user.username if application.user else None,
+                "cv_file_path": application.cv_file_path,
+                "cover_letter": application.cover_letter,
+                "status": application.status,
+                "applied_at": application.applied_at
+            }
+            vacancy_data["applications"].append(application_data)
+        
+        result.append(vacancy_data)
+    
+    return result 
