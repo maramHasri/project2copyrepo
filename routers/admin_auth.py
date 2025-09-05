@@ -11,7 +11,8 @@ from security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     ADMIN_CODE,
     SECRET_KEY,
-    ALGORITHM
+    ALGORITHM,
+    get_current_admin
 )
 
 from typing import Optional, List
@@ -37,30 +38,6 @@ async def get_bearer_token(authorization: Optional[str] = Header(None, include_i
     
     return authorization.replace("Bearer ", "")
 
-async def get_current_admin(token: str = Depends(get_bearer_token), db: Session = Depends(get_db)) -> Admin:
-    #Get  admin from token
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        entity_type: str = payload.get("entity_type")
-        
-        if username is None or entity_type != "admin":
-            raise credentials_exception
-            
-    except JWTError:
-        raise credentials_exception
-    
-    admin = db.query(Admin).filter(Admin.username == username).first()
-    if admin is None:
-        raise credentials_exception
-    
-    return admin
 
 async def get_super_admin(current_admin: Admin = Depends(get_current_admin)) -> Admin:
     """Check if admin is super admin"""

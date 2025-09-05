@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from database import get_db
-from models import User, UserRole, PublisherHouse
+from models import User, UserRole, PublisherHouse, Admin
 from schemas import TokenData
 import random
 import string
@@ -187,4 +187,29 @@ def check_writer_or_admin_role():
                 detail="Operation requires writer role"
             )
         return current_user
-    return writer_admin_checker 
+    return writer_admin_checker
+
+async def get_current_admin(token: str = Depends(get_bearer_token), db: Session = Depends(get_db)) -> Admin:
+    """Get current admin from JWT token - centralized admin authentication"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate admin credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        entity_type: str = payload.get("entity_type")
+        
+        if username is None or entity_type != "admin":
+            raise credentials_exception
+            
+    except JWTError:
+        raise credentials_exception
+    
+    admin = db.query(Admin).filter(Admin.username == username).first()
+    if admin is None or not admin.is_active:
+        raise credentials_exception
+    
+    return admin

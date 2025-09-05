@@ -63,6 +63,7 @@ class User(Base):
     liked_quotes = relationship("Quote", secondary="user_liked_quotes", back_populates="liked_by")
     flashes = relationship("Flash", back_populates="author")
     cv_applications = relationship("CVApplication", back_populates="user")
+    reports = relationship("Report", back_populates="user")
 
 class Admin(Base):
     __tablename__ = "admins"
@@ -81,6 +82,7 @@ class Admin(Base):
     
     # Relationships
     admin_actions = relationship("AdminAction", back_populates="admin")
+    reports = relationship("Report", back_populates="admin")
 
 class AdminAction(Base):
     __tablename__ = "admin_actions"
@@ -139,6 +141,9 @@ class Book(Base):
     author_name = Column(String, nullable=True)  # Author name 
     author_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     publisher_house_id = Column(Integer, ForeignKey("publisher_houses.id"), nullable=True)
+    is_blocked = Column(Boolean, default=False)  # Admin can block books
+    blocked_reason = Column(Text, nullable=True)  # Reason for blocking
+    blocked_at = Column(DateTime, nullable=True)  # When the book was blocked
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     author = relationship("User", back_populates="books")
@@ -147,6 +152,7 @@ class Book(Base):
     liked_by = relationship("User", secondary="user_liked_books", back_populates="liked_books")
     saved_by = relationship("User", secondary="user_saved_books", back_populates="saved_books")
     comments = relationship("Comment", back_populates="book")
+    reports = relationship("Report", back_populates="book")
     # Removed quotes relationship since Quote now uses book_name string
     
     @property
@@ -199,6 +205,42 @@ class Comment(Base):
     # Relationships
     book = relationship("Book", back_populates="comments")
     user = relationship("User", back_populates="comments")
+    
+    @property
+    def user_name(self):
+        """Get the user's username from the relationship"""
+        return self.user.username if self.user else None
+
+
+class Report(Base):
+    __tablename__ = "reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    book_id = Column(Integer, ForeignKey("books.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    reason = Column(Text, nullable=False)  # Reason for reporting
+    description = Column(Text, nullable=True)  # Additional details
+    status = Column(String, default="pending")  # pending, reviewed, resolved, dismissed
+    admin_id = Column(Integer, ForeignKey("admins.id"), nullable=True)  # Admin who handled the report
+    admin_notes = Column(Text, nullable=True)  # Admin's notes on the report
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime, nullable=True)  # When status was last updated
+    
+    # Relationships
+    book = relationship("Book", back_populates="reports")
+    user = relationship("User", back_populates="reports")
+    admin = relationship("Admin", back_populates="reports")
+    
+    @property
+    def user_name(self):
+        """Get the user's username from the relationship"""
+        return self.user.username if self.user else None
+    
+    @property
+    def admin_name(self):
+        """Get the admin's username from the relationship"""
+        return self.admin.username if self.admin else None
+
 
 class Vacancy(Base):
     __tablename__ = "vacancies"

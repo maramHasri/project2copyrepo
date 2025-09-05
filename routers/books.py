@@ -287,7 +287,7 @@ async def get_books(
     limit: int = 10,
     db: Session = Depends(get_db)
 ):
-    query = db.query(Book).join(Book.publisher_house, isouter=True)
+    query = db.query(Book).join(Book.publisher_house, isouter=True).filter(Book.is_blocked == False)
     if title:
         query = query.filter(Book.title.ilike(f"%{title}%"))
     books = query.offset(skip).limit(limit).all()
@@ -310,7 +310,10 @@ async def get_recommended_books(
     if not current_user.interests:
         return []
     category_ids = [cat.id for cat in current_user.interests]
-    books = db.query(Book).join(Book.categories).filter(Category.id.in_(category_ids)).all()
+    books = db.query(Book).join(Book.categories).filter(
+        Category.id.in_(category_ids),
+        Book.is_blocked == False
+    ).all()
     
     # Populate publisher_house_name for each book
     for book in books:
@@ -328,7 +331,7 @@ async def get_saved_books(
     db: Session = Depends(get_db)
 ):
     """Get all books liked by the current user"""
-    books = current_user.liked_books
+    books = [book for book in current_user.liked_books if not book.is_blocked]
     
     # Populate publisher_house_name for each book
     for book in books:
@@ -344,7 +347,7 @@ async def get_book_by_title(
     title: str,
     db: Session = Depends(get_db)
 ):
-    book = db.query(Book).filter(Book.title == title).first()
+    book = db.query(Book).filter(Book.title == title, Book.is_blocked == False).first()
     if not book:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

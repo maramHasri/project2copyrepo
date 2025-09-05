@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from database import get_db
 from models import User, Category, PublisherHouse, Book, UserRole, Vacancy, CVApplication
-from schemas import UserUpdate, User as UserSchema, UserInterests, PublisherHouseCreate, FileUploadResponse, Book as BookSchema, UserSkillsUpdate, PublisherHouse as PublisherHouseSchema, Vacancy as VacancySchema, CVApplication as CVApplicationSchema, CVApplicationCreate
+from schemas import UserUpdate, User as UserSchema, UserInterests, PublisherHouseCreate, FileUploadResponse, Book as BookSchema, UserSkillsUpdate, PublisherHouse as PublisherHouseSchema, Vacancy as VacancySchema, CVApplication as CVApplicationSchema, CVApplicationCreate, WriterResponse
 from security import get_current_active_user, check_user_role
 from file_upload import save_cv_file
 import json
@@ -228,6 +228,22 @@ async def get_current_user_info(
     # Return user information (publishers now have separate system)
     return current_user
 
+@router.get("/writers", response_model=List[WriterResponse])
+async def get_all_writers(
+    skip: int = 0,
+    limit: int = 20,
+    featured_only: bool = False,
+    db: Session = Depends(get_db)
+):
+    """Get all writers with optional filtering"""
+    query = db.query(User).filter(User.role == UserRole.writer, User.is_active == True)
+    
+    if featured_only:
+        query = query.filter(User.is_featured_writer == True)
+    
+    writers = query.offset(skip).limit(limit).all()
+    return writers
+
 @router.get("/writers/{writer_id}", response_model=UserSchema)
 async def get_writer(
     writer_id: int,
@@ -268,7 +284,7 @@ async def get_publisher_books(
         )
     
     # Get all books for this publisher house with publisher relationship loaded
-    books = db.query(Book).filter(Book.publisher_house_id == publisher_id).all()
+    books = db.query(Book).filter(Book.publisher_house_id == publisher_id, Book.is_blocked == False).all()
     
     # Populate publisher_house_name for each book
     for book in books:

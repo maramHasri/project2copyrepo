@@ -2,13 +2,27 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
-from routers import auth, users, books, categories, quotes, flashes, admin_auth, publisher_auth, publisher_vacancies
+from routers import auth, users, books, categories, quotes, flashes, comments, reports, admin_auth, admin_reports, publisher_auth, publisher_vacancies
 from database import engine
 from models import Base
 import os
 
-# Create database 
+# Create database tables if they don't exist
+print("🔍 Checking database structure...")
 Base.metadata.create_all(bind=engine)
+print("✅ Database tables verified!")
+
+# Verify database structure
+print("🔍 Verifying database structure...")
+try:
+    import subprocess
+    result = subprocess.run(["python", "verify_database.py"], capture_output=True, text=True)
+    if result.returncode == 0:
+        print("✅ Database verification passed!")
+    else:
+        print(f"⚠️  Database verification warning: {result.stderr}")
+except Exception as e:
+    print(f"⚠️  Could not run database verification: {e}")
 
 # Create uploads folder
 os.makedirs("uploads", exist_ok=True)
@@ -90,7 +104,11 @@ def custom_openapi():
     # read-only endpoints 
     public_get_paths = {
         "/categories/",
-        "/categories/{category_id}"
+        "/categories/{category_id}",
+        "/comments/",
+        "/comments/book/{book_id}",
+        "/comments/user/{user_id}",
+        "/comments/{comment_id}"
     }
     
     for path in openapi_schema["paths"]:
@@ -131,8 +149,11 @@ app.include_router(books.router, prefix="/books", tags=["Books"])
 app.include_router(categories.router, prefix="/categories", tags=["Categories"])
 app.include_router(quotes.router, prefix="/quotes", tags=["Quotes"])
 app.include_router(flashes.router, prefix="/flashes", tags=["Flashes writer quotes"])
+app.include_router(comments.router, prefix="/comments", tags=["Comments"])
+app.include_router(reports.router, prefix="/reports", tags=["Reports"])
 
 app.include_router(admin_auth.router, prefix="/admin", tags=["Admin Authentication"])
+app.include_router(admin_reports.router, prefix="/admin", tags=["Admin Reports Management"])
 app.include_router(publisher_auth.router, prefix="/publisher", tags=["Publisher House"])
 app.include_router(publisher_vacancies.router, prefix="/publisher/vacancies", tags=["Publisher Vacancies"])
 #never get 404

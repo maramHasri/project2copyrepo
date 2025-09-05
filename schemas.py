@@ -44,6 +44,55 @@ class User(UserInDB):
     class Config:
         from_attributes = True
 
+# Writer response schema (simplified for public viewing)
+class WriterResponse(BaseModel):
+    id: int
+    username: str
+    bio: Optional[str] = None
+    social_links: Optional[str] = None
+    writer_bio: Optional[str] = None
+    published_books_count: int = 0
+    is_featured_writer: bool = False
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Report schemas
+class ReportBase(BaseModel):
+    book_id: int
+    reason: str
+    description: Optional[str] = None
+
+class ReportCreate(ReportBase):
+    pass
+
+class ReportUpdate(BaseModel):
+    status: Optional[str] = None  # pending, reviewed, resolved, dismissed
+    admin_notes: Optional[str] = None
+
+class Report(ReportBase):
+    id: int
+    user_id: int
+    user_name: Optional[str] = None  # Username of the reporter
+    status: str
+    admin_id: Optional[int] = None
+    admin_name: Optional[str] = None  # Username of the admin who handled it
+    admin_notes: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+# Book blocking schemas
+class BookBlockRequest(BaseModel):
+    blocked_reason: str
+    admin_notes: Optional[str] = None
+
+class BookUnblockRequest(BaseModel):
+    admin_notes: Optional[str] = None
+
 # User skills update schema
 class UserSkillsUpdate(BaseModel):
     skills: List[str]  # List of selected skill names
@@ -275,10 +324,12 @@ class CommentCreate(CommentBase):
 class Comment(CommentBase):
     id: int
     user_id: int
+    user_name: Optional[str] = None  # Username of the commenter
     created_at: datetime
 
     class Config:
         from_attributes = True
+
 
 # Vacancy schemas
 class VacancyBase(BaseModel):
