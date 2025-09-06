@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
-from routers import auth, users, books, categories, quotes, flashes, comments, reports, admin_auth, admin_reports, publisher_auth, publisher_vacancies
+from routers import auth, users, books, categories, quotes, flashes, comments, reports, admin_auth, admin_reports, publisher_auth, publisher_vacancies, advertisements
 from database import engine
 from models import Base
 import os
@@ -11,18 +11,6 @@ import os
 print("🔍 Checking database structure...")
 Base.metadata.create_all(bind=engine)
 print("✅ Database tables verified!")
-
-# Verify database structure
-print("🔍 Verifying database structure...")
-try:
-    import subprocess
-    result = subprocess.run(["python", "verify_database.py"], capture_output=True, text=True)
-    if result.returncode == 0:
-        print("✅ Database verification passed!")
-    else:
-        print(f"⚠️  Database verification warning: {result.stderr}")
-except Exception as e:
-    print(f"⚠️  Could not run database verification: {e}")
 
 # Create uploads folder
 os.makedirs("uploads", exist_ok=True)
@@ -156,6 +144,7 @@ app.include_router(admin_auth.router, prefix="/admin", tags=["Admin Authenticati
 app.include_router(admin_reports.router, prefix="/admin", tags=["Admin Reports Management"])
 app.include_router(publisher_auth.router, prefix="/publisher", tags=["Publisher House"])
 app.include_router(publisher_vacancies.router, prefix="/publisher/vacancies", tags=["Publisher Vacancies"])
+app.include_router(advertisements.router, prefix="/advertisements", tags=["Advertisements"])
 #never get 404
 @app.get("/")
 async def root():

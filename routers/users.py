@@ -382,4 +382,4 @@ async def get_my_applications(
         joinedload(CVApplication.vacancy)
     ).filter(CVApplication.user_id == current_user.id).all()
     
-    return applications 
+    return applications

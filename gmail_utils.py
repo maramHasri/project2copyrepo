@@ -118,4 +118,110 @@ def send_email_gmail(to_email: str, subject: str, text_content: str, html_conten
             return True
     except Exception as e:
         print(f"Error sending email via Gmail SMTP: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+
+def send_password_reset_email(to_email: str, reset_token: str):
+    """Send password reset email with reset token"""
+    
+    # Simple HTML email template for password reset
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>Password Reset Request</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+            .header {{ text-align: center; margin-bottom: 30px; }}
+            .token-code {{ font-size: 24px; font-weight: bold; text-align: center; color: #007bff; padding: 20px; background-color: #f8f9fa; border-radius: 5px; margin: 20px 0; word-break: break-all; border: 2px solid #007bff; }}
+            .instructions {{ background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0; }}
+            .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 12px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>🔐 Password Reset Request</h2>
+            </div>
+            <p>Hello!</p>
+            <p>You have requested to reset your password for your Book Platform account.</p>
+            <p><strong>Your password reset token is:</strong></p>
+            <div class="token-code">{reset_token}</div>
+            
+            <div class="instructions">
+                <p><strong>How to reset your password:</strong></p>
+                <ol>
+                    <li>Copy the reset token above</li>
+                    <li>Go to your app and find the "Reset Password" option</li>
+                    <li>Paste the token and enter your new password</li>
+                    <li>Submit the form to complete the reset</li>
+                </ol>
+            </div>
+            
+            <p><strong>Important:</strong></p>
+            <ul>
+                <li>This token will expire in 5 days</li>
+                <li>Do not share this token with anyone</li>
+                <li>If you didn't request this reset, please ignore this email</li>
+                <li>Your password will remain unchanged until you complete the reset process</li>
+            </ul>
+            <div class="footer">
+                <p>This email was sent from Book Platform</p>
+                <p>If you have any questions, please contact our support team</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    # Plain text version
+    text_content = f"""
+    Password Reset Request
+    
+    Hello!
+    
+    You have requested to reset your password for your Book Platform account.
+    
+    Your password reset token is:
+    
+    {reset_token}
+    
+    How to reset your password:
+    1. Copy the reset token above
+    2. Go to your app and find the "Reset Password" option
+    3. Paste the token and enter your new password
+    4. Submit the form to complete the reset
+    
+    Important:
+    - This token will expire in 5 days
+    - Do not share this token with anyone
+    - If you didn't request this reset, please ignore this email
+    - Your password will remain unchanged until you complete the reset process
+    
+    This email was sent from Book Platform
+    If you have any questions, please contact our support team
+    """
+    
+    # Create message
+    message = MIMEMultipart("alternative")
+    message["Subject"] = "🔐 Password Reset Token - Book Platform"
+    message["From"] = f"Book Platform <{GMAIL_USER}>"
+    message["To"] = to_email
+    
+    # Attach both HTML and text versions
+    text_part = MIMEText(text_content, "plain")
+    html_part = MIMEText(html_content, "html")
+    
+    message.attach(text_part)
+    message.attach(html_part)
+    
+    try:
+        # Connect to Gmail SMTP server
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            server.sendmail(GMAIL_USER, to_email, message.as_string())
+            return True
+    except Exception as e:
+        print(f"Error sending password reset email via Gmail SMTP: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send password reset email: {str(e)}")

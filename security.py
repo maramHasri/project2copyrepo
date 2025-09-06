@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from database import get_db
-from models import User, UserRole, PublisherHouse, Admin
+from models import User, UserRole, PublisherHouse, Admin, PasswordResetToken
 from schemas import TokenData
 import random
 import string
@@ -76,6 +76,66 @@ def verify_otp(email: str, otp: str) -> bool:
         return True
     
     print(f" Debug: OTP mismatch")
+    return False
+
+# Password Reset Functions
+def generate_reset_token() -> str:
+    """Generate a secure password reset token"""
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+
+def create_reset_token(email: str, db: Session) -> str:
+    """Create a password reset token for the given email"""
+    # Invalidate any existing tokens for this email
+    db.query(PasswordResetToken).filter(
+        PasswordResetToken.email == email,
+        PasswordResetToken.used == False
+    ).update({"used": True})
+    
+    # Generate new token
+    token = generate_reset_token()
+    expires_at = datetime.utcnow() + timedelta(days=5)  # Token expires in 5 days
+    
+    # Store token in database
+    reset_token = PasswordResetToken(
+        email=email,
+        token=token,
+        expires_at=expires_at
+    )
+    
+    db.add(reset_token)
+    db.commit()
+    
+    return token
+
+def verify_reset_token(token: str, db: Session) -> Optional[str]:
+    """Verify password reset token and return email if valid"""
+    reset_token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == token,
+        PasswordResetToken.used == False
+    ).first()
+    
+    if not reset_token:
+        return None
+    
+    if reset_token.is_expired:
+        # Mark as used to prevent reuse
+        reset_token.used = True
+        db.commit()
+        return None
+    
+    return reset_token.email
+
+def mark_token_as_used(token: str, db: Session) -> bool:
+    """Mark a reset token as used"""
+    reset_token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == token
+    ).first()
+    
+    if reset_token:
+        reset_token.used = True
+        db.commit()
+        return True
+    
     return False
 
 async def get_bearer_token(authorization: Optional[str] = Header(None, include_in_schema=False)) -> str:

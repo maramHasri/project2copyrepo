@@ -449,4 +449,37 @@ class OTPVerify(BaseModel):
 class OTPResponse(BaseModel):
     message: str
     success: bool
-    otp: Optional[str] = None  # For testing only 
+    otp: Optional[str] = None  # For testing only
+
+# Password Reset schemas
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+class PasswordResetUpdate(BaseModel):
+    token: str
+    new_password: str
+    
+    @validator('new_password')
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        return v
+
+class PasswordResetResponse(BaseModel):
+    message: str
+    success: bool
+
+# Advertisement schemas
+class Advertisement(BaseModel):
+    id: int
+    image_url: str
+    status: str  # "pending", "approved", "rejected"
+    publisher_house_id: int
+    publisher_house_name: Optional[str] = None
+    approved_by: Optional[int] = None
+    admin_name: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True 

@@ -17,7 +17,7 @@ from security import (
 )
 from jose import JWTError, jwt
 
-from typing import Optional
+from typing import Optional, List
 import os
 from datetime import datetime
 
@@ -329,4 +329,4 @@ async def get_latest_publisher_books(
 #         },
 #         "total_books": len(books_data),
 #         "latest_books": books_data
-#     } 
+#     }

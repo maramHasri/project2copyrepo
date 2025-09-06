@@ -3,8 +3,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List, Optional
 from database import get_db
-from models import Report, Book, User, Admin
-from schemas import Report as ReportSchema, ReportUpdate, BookBlockRequest, BookUnblockRequest, Book as BookSchema
+from models import Report, Book, User, Admin, Comment
+from schemas import (
+    Report as ReportSchema, ReportUpdate, BookBlockRequest, BookUnblockRequest, Book as BookSchema, 
+    Comment as CommentSchema
+)
 from security import get_current_admin
 from datetime import datetime
 
@@ -284,4 +287,236 @@ async def get_blocked_books(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error getting blocked books: {str(e)}"
+        )
+
+@router.get("/writers")
+async def get_all_writers(
+    skip: int = 0,
+    limit: int = 20,
+    current_admin: Admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get all writers - admin only"""
+    try:
+        # Query users with writer role
+        writers = db.query(User).filter(User.role == "writer").offset(skip).limit(limit).all()
+        
+        return [
+            {
+                "id": writer.id,
+                "username": writer.username,
+                "email": writer.email,
+                "phone_number": writer.phone_number,
+                "role": writer.role,
+                "bio": writer.bio,
+                "writer_bio": writer.writer_bio,
+                "published_books_count": writer.published_books_count,
+                "is_featured_writer": writer.is_featured_writer,
+                "skills": writer.skills,
+                "social_links": writer.social_links,
+                "profile_image": writer.profile_image,
+                "is_active": writer.is_active,
+                "is_verified": writer.is_verified,
+                "created_at": writer.created_at
+            }
+            for writer in writers
+        ]
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting writers: {str(e)}"
+        )
+
+@router.get("/writers/{writer_id}")
+async def get_writer(
+    writer_id: int,
+    current_admin: Admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get a specific writer by ID - admin only"""
+    try:
+        writer = db.query(User).filter(
+            User.id == writer_id,
+            User.role == "writer"
+        ).first()
+        
+        if not writer:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Writer not found"
+            )
+        
+        return {
+            "id": writer.id,
+            "username": writer.username,
+            "email": writer.email,
+            "phone_number": writer.phone_number,
+            "role": writer.role,
+            "bio": writer.bio,
+            "writer_bio": writer.writer_bio,
+            "published_books_count": writer.published_books_count,
+            "is_featured_writer": writer.is_featured_writer,
+            "skills": writer.skills,
+            "social_links": writer.social_links,
+            "profile_image": writer.profile_image,
+            "is_active": writer.is_active,
+            "is_verified": writer.is_verified,
+            "created_at": writer.created_at
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting writer: {str(e)}"
+        )
+
+@router.get("/writers/stats")
+async def get_writers_stats(
+    current_admin: Admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get writers statistics - admin only"""
+    try:
+        # Total writers count
+        total_writers = db.query(User).filter(User.role == "writer").count()
+        
+        # Active writers count
+        active_writers = db.query(User).filter(
+            User.role == "writer",
+            User.is_active == True
+        ).count()
+        
+        # Verified writers count
+        verified_writers = db.query(User).filter(
+            User.role == "writer",
+            User.is_verified == True
+        ).count()
+        
+        # Featured writers count
+        featured_writers = db.query(User).filter(
+            User.role == "writer",
+            User.is_featured_writer == True
+        ).count()
+        
+        # Writers with published books
+        writers_with_books = db.query(User).filter(
+            User.role == "writer",
+            User.published_books_count > 0
+        ).count()
+        
+        return {
+            "total_writers": total_writers,
+            "active_writers": active_writers,
+            "verified_writers": verified_writers,
+            "featured_writers": featured_writers,
+            "writers_with_books": writers_with_books,
+            "inactive_writers": total_writers - active_writers,
+            "unverified_writers": total_writers - verified_writers
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting writers statistics: {str(e)}"
+        )
+
+@router.get("/comments", response_model=List[CommentSchema])
+async def get_all_comments(
+    skip: int = 0,
+    limit: int = 20,
+    book_id: Optional[int] = None,
+    current_admin: Admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get all users' comments with optional book filtering - admin only"""
+    try:
+        query = db.query(Comment)
+        
+        # Apply book filter if provided
+        if book_id:
+            query = query.filter(Comment.book_id == book_id)
+        
+        # Order by creation date (newest first)
+        query = query.order_by(Comment.created_at.desc())
+        
+        # Apply pagination
+        comments = query.offset(skip).limit(limit).all()
+        
+        return comments
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting comments: {str(e)}"
+        )
+
+@router.get("/comments/{comment_id}", response_model=CommentSchema)
+async def get_comment(
+    comment_id: int,
+    current_admin: Admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get a specific comment by ID - admin only"""
+    try:
+        comment = db.query(Comment).filter(Comment.id == comment_id).first()
+        
+        if not comment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Comment not found"
+            )
+        
+        return comment
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting comment: {str(e)}"
+        )
+
+@router.delete("/comments/{comment_id}")
+async def delete_comment(
+    comment_id: int,
+    current_admin: Admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Delete a comment - admin only"""
+    try:
+        comment = db.query(Comment).filter(Comment.id == comment_id).first()
+        
+        if not comment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Comment not found"
+            )
+        
+        # Store comment info for response
+        comment_info = {
+            "id": comment.id,
+            "text": comment.text,
+            "user_name": comment.user_name,
+            "book_id": comment.book_id,
+            "created_at": comment.created_at
+        }
+        
+        # Delete the comment
+        db.delete(comment)
+        db.commit()
+        
+        return {
+            "message": "Comment deleted successfully",
+            "deleted_comment": comment_info
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting comment: {str(e)}"
         )

@@ -70,13 +70,6 @@ async def register_admin(
         )
     
     
-    existing_admin = db.query(Admin).filter(Admin.username == admin_data.username).first()
-    if existing_admin:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered"
-        )
-    
    
     existing_admin = db.query(Admin).filter(Admin.email == admin_data.email).first()
     if existing_admin:

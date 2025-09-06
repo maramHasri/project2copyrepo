@@ -69,9 +69,9 @@ class Admin(Base):
     __tablename__ = "admins"
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
+    username = Column(String, index=True)
     email = Column(String, unique=True, index=True)
-    phone_number = Column(String, unique=True, nullable=True)
+    phone_number = Column(String, nullable=True)
     
     hashed_password = Column(String)
     role = Column(Enum(AdminRole), default=AdminRole.super_admin) 
@@ -83,6 +83,7 @@ class Admin(Base):
     # Relationships
     admin_actions = relationship("AdminAction", back_populates="admin")
     reports = relationship("Report", back_populates="admin")
+    advertisements = relationship("Advertisement", back_populates="admin")
 
 class AdminAction(Base):
     __tablename__ = "admin_actions"
@@ -115,6 +116,7 @@ class PublisherHouse(Base):
     # book
     books = relationship("Book", back_populates="publisher_house")
     vacancies = relationship("Vacancy", back_populates="publisher_house")
+    advertisements = relationship("Advertisement", back_populates="publisher_house")
     featured_writers = relationship("User", secondary="publisher_featured_writers")
 
 class Category(Base):
@@ -144,7 +146,7 @@ class Book(Base):
     is_blocked = Column(Boolean, default=False)  # Admin can block books
     blocked_reason = Column(Text, nullable=True)  # Reason for blocking
     blocked_at = Column(DateTime, nullable=True)  # When the book was blocked
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime, default=datetime.utcnow)
     
     author = relationship("User", back_populates="books")
     publisher_house = relationship("PublisherHouse", back_populates="books")
@@ -168,7 +170,7 @@ class Quote(Base):
     book_name = Column(String, index=True)  # Changed from book_id to book_name
     author_id = Column(Integer, ForeignKey("users.id"))
     number_of_likes = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
     author = relationship("User", back_populates="quotes")
@@ -188,7 +190,7 @@ class Flash(Base):
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     author_name = Column(String, nullable=False)  # Writer's name
     number_of_likes = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
     author = relationship("User", back_populates="flashes")
@@ -200,7 +202,7 @@ class Comment(Base):
     text = Column(Text)
     book_id = Column(Integer, ForeignKey("books.id"))
     user_id = Column(Integer, ForeignKey("users.id"))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
     book = relationship("Book", back_populates="comments")
@@ -223,7 +225,7 @@ class Report(Base):
     status = Column(String, default="pending")  # pending, reviewed, resolved, dismissed
     admin_id = Column(Integer, ForeignKey("admins.id"), nullable=True)  # Admin who handled the report
     admin_notes = Column(Text, nullable=True)  # Admin's notes on the report
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=True)  # When status was last updated
     
     # Relationships
@@ -241,7 +243,36 @@ class Report(Base):
         """Get the admin's username from the relationship"""
         return self.admin.username if self.admin else None
 
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
 
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, nullable=False, index=True)
+    token = Column(String, nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    @property
+    def is_expired(self):
+        """Check if the token is expired"""
+        return datetime.utcnow() > self.expires_at
+
+class Advertisement(Base):
+    __tablename__ = "advertisements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    image_url = Column(String, nullable=False)
+    status = Column(String, default="pending")  # pending, approved, rejected
+    publisher_house_id = Column(Integer, ForeignKey("publisher_houses.id"))
+    approved_by = Column(Integer, ForeignKey("admins.id"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # العلاقات
+    publisher_house = relationship("PublisherHouse", back_populates="advertisements")
+    admin = relationship("Admin", back_populates="advertisements")
 class Vacancy(Base):
     __tablename__ = "vacancies"
 
@@ -252,7 +283,7 @@ class Vacancy(Base):
     requirements = Column(Text, nullable=True)
     publisher_house_id = Column(Integer, ForeignKey("publisher_houses.id"))
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
     publisher_house = relationship("PublisherHouse", back_populates="vacancies")
@@ -278,7 +309,7 @@ class CVApplication(Base):
     cv_file_path = Column(String, nullable=False)  # Path to uploaded CV file
     cover_letter = Column(Text, nullable=True)  # Optional cover letter
     status = Column(String, default="pending")  # pending, reviewed, accepted, rejected
-    applied_at = Column(DateTime(timezone=True), server_default=func.now())
+    applied_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
     user = relationship("User", back_populates="cv_applications")

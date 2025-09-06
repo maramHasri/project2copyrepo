@@ -5,7 +5,7 @@ from database import get_db
 from models import User, UserRole, Book
 from schemas import (
     UserCreate, User as UserSchema, Token, LoginRequest, RoleLoginRequest,
-    OTPRequest, OTPVerify, OTPResponse
+    OTPRequest, OTPVerify, OTPResponse, PasswordResetRequest, PasswordResetUpdate, PasswordResetResponse
 )
 from security import (
     verify_password,
@@ -16,9 +16,12 @@ from security import (
     ADMIN_CODE,
     generate_otp,
     store_otp,
-    verify_otp
+    verify_otp,
+    create_reset_token,
+    verify_reset_token,
+    mark_token_as_used
 )
-from gmail_utils import send_otp_email_gmail as send_otp_email
+from gmail_utils import send_otp_email_gmail as send_otp_email, send_password_reset_email
 
 from typing import Optional
 
@@ -146,6 +149,83 @@ async def verify_otp_endpoint(otp_verify: OTPVerify):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired OTP"
+        )
+
+# Password Reset endpoints
+@router.post("/request-password-reset", response_model=PasswordResetResponse)
+async def request_password_reset(
+    reset_request: PasswordResetRequest,
+    db: Session = Depends(get_db)
+):
+    """Request password reset by email"""
+    try:
+        # Check if user exists with this email
+        user = db.query(User).filter(User.email == reset_request.email).first()
+        if not user:
+            # For security, don't reveal if email exists or not
+            return PasswordResetResponse(
+                message="If an account with this email exists, a password reset link has been sent.",
+                success=True
+            )
+        
+        # Create reset token
+        reset_token = create_reset_token(reset_request.email, db)
+        
+        # Send password reset email
+        send_password_reset_email(reset_request.email, reset_token)
+        
+        return PasswordResetResponse(
+            message="If an account with this email exists, a password reset link has been sent.",
+            success=True
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing password reset request: {str(e)}"
+        )
+
+@router.post("/reset-password", response_model=PasswordResetResponse)
+async def reset_password(
+    reset_data: PasswordResetUpdate,
+    db: Session = Depends(get_db)
+):
+    """Reset password using reset token"""
+    try:
+        # Verify reset token
+        email = verify_reset_token(reset_data.token, db)
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired reset token"
+            )
+        
+        # Find user by email
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Update password
+        user.hashed_password = get_password_hash(reset_data.new_password)
+        db.commit()
+        
+        # Mark token as used
+        mark_token_as_used(reset_data.token, db)
+        
+        return PasswordResetResponse(
+            message="Password has been reset successfully",
+            success=True
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error resetting password: {str(e)}"
         )
 
  
