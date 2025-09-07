@@ -47,7 +47,7 @@ In Render dashboard, add these environment variables:
 DATABASE_URL=postgresql://username:password@host:port/database_name
 SECRET_KEY=your-secret-key-here
 ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
+ACCESS_TOKEN_EXPIRE_MINUTES=7200
 UPLOAD_DIR=uploads
 MAX_FILE_SIZE=10485760
 ```
