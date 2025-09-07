@@ -6,7 +6,7 @@ from database import get_db
 from models import Report, Book, User, Admin, Comment
 from schemas import (
     Report as ReportSchema, ReportUpdate, BookBlockRequest, BookUnblockRequest, Book as BookSchema, 
-    Comment as CommentSchema
+    Comment as CommentSchema, UserBlockRequest, UserBlockResponse
 )
 from security import get_current_admin
 from datetime import datetime
@@ -519,4 +519,133 @@ async def delete_comment(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting comment: {str(e)}"
+        )
+
+# User Blocking APIs
+@router.post("/users/{user_id}/block", response_model=UserBlockResponse)
+async def block_user(
+    user_id: int,
+    block_request: UserBlockRequest,
+    current_admin: Admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Block a user - admin only"""
+    try:
+        # Check if user exists
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Check if user is already blocked
+        if user.is_blocked:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User is already blocked"
+            )
+        
+        # Block the user
+        user.is_blocked = True
+        user.blocked_reason = block_request.reason
+        user.blocked_at = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(user)
+        
+        return UserBlockResponse(
+            message="User blocked successfully",
+            user_id=user.id,
+            is_blocked=user.is_blocked,
+            blocked_reason=user.blocked_reason,
+            blocked_at=user.blocked_at
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error blocking user: {str(e)}"
+        )
+
+@router.post("/users/{user_id}/unblock", response_model=UserBlockResponse)
+async def unblock_user(
+    user_id: int,
+    current_admin: Admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Unblock a user - admin only"""
+    try:
+        # Check if user exists
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Check if user is not blocked
+        if not user.is_blocked:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User is not blocked"
+            )
+        
+        # Unblock the user
+        user.is_blocked = False
+        user.blocked_reason = None
+        user.blocked_at = None
+        
+        db.commit()
+        db.refresh(user)
+        
+        return UserBlockResponse(
+            message="User unblocked successfully",
+            user_id=user.id,
+            is_blocked=user.is_blocked,
+            blocked_reason=user.blocked_reason,
+            blocked_at=user.blocked_at
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error unblocking user: {str(e)}"
+        )
+
+@router.get("/users/blocked")
+async def get_blocked_users(
+    skip: int = 0,
+    limit: int = 20,
+    current_admin: Admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get all blocked users - admin only"""
+    try:
+        blocked_users = db.query(User).filter(
+            User.is_blocked == True
+        ).offset(skip).limit(limit).all()
+        
+        return [
+            {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "role": user.role,
+                "is_blocked": user.is_blocked,
+                "blocked_reason": user.blocked_reason,
+                "blocked_at": user.blocked_at,
+                "created_at": user.created_at
+            }
+            for user in blocked_users
+        ]
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting blocked users: {str(e)}"
         )

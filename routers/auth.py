@@ -92,6 +92,14 @@ async def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # Check if user is blocked by admin
+    if user.is_blocked:
+        reason = user.blocked_reason or "No reason provided"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"the system blocked you because {reason}"
+        )
+    
     # Create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(

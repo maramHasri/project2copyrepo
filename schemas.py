@@ -483,3 +483,14 @@ class Advertisement(BaseModel):
 
     class Config:
         from_attributes = True 
+
+# User blocking schemas
+class UserBlockRequest(BaseModel):
+    reason: str
+
+class UserBlockResponse(BaseModel):
+    message: str
+    user_id: int
+    is_blocked: bool
+    blocked_reason: Optional[str] = None
+    blocked_at: Optional[datetime] = None

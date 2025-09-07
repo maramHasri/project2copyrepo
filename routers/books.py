@@ -362,14 +362,14 @@ async def get_book_by_title(
     
     return book
 
-@router.put("/{title}", response_model=BookSchema)
-async def update_book_by_title(
-    title: str,
+@router.put("/{book_id}", response_model=BookSchema)
+async def update_book_by_id(
+    book_id: int,
     book_update: BookUpdate,
     current_user = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    db_book = db.query(Book).filter(Book.title == title).first()
+    db_book = db.query(Book).filter(Book.id == book_id).first()
     if not db_book:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -385,7 +385,9 @@ async def update_book_by_title(
     if book_update.is_free is not None:
         if book_update.is_free:
             # If book is being set to free, automatically set price to 0
-            book_update.price = 0
+            # Only set price if it wasn't explicitly provided in the request
+            if book_update.price is None:
+                book_update.price = 0
         else:
             # If book is being set to paid, price is required
             if book_update.price is None or book_update.price == 0:
@@ -394,14 +396,93 @@ async def update_book_by_title(
                     detail="Price is required for paid books"
                 )
     
-    # Update book fields
-    for field, value in book_update.dict(exclude_unset=True, exclude={'category_ids'}).items():
-        setattr(db_book, field, value)
+    # Update only the fields that are explicitly provided (partial update)
+    update_data = book_update.dict(exclude_unset=True, exclude={'category_ids', 'cover_url'})
+    
+    # Handle cover_url specially - it maps to cover_image in the database
+    if book_update.cover_url is not None:
+        db_book.cover_image = book_update.cover_url
+    
+    # Update only the fields that were explicitly provided in the request
+    for field, value in update_data.items():
+        if value is not None:  # Only update if value is not None
+            setattr(db_book, field, value)
     
     # Update categories if provided
     if book_update.category_ids:
         categories = db.query(Category).filter(Category.id.in_(book_update.category_ids)).all()
         if len(categories) != len(book_update.category_ids):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="One or more categories not found"
+            )
+        db_book.categories = categories
+    
+    db.commit()
+    db.refresh(db_book)
+    
+    # Populate publisher_house_name before returning
+    if db_book.publisher_house:
+        db_book.publisher_house_name = db_book.publisher_house.name
+    else:
+        db_book.publisher_house_name = None
+    
+    return db_book
+
+@router.patch("/{book_id}", response_model=BookSchema)
+async def patch_book_by_id(
+    book_id: int,
+    book_update: BookUpdate,
+    current_user = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Partial update of a book - only updates provided fields"""
+    # Convert to dict and exclude unset fields
+    request_data = book_update.dict(exclude_unset=True)
+    
+    db_book = db.query(Book).filter(Book.id == book_id).first()
+    if not db_book:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Book not found"
+        )
+    if db_book.author_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this book"
+        )
+    
+    # Handle price logic based on is_free status
+    if 'is_free' in request_data:
+        if request_data['is_free']:
+            # If book is being set to free, automatically set price to 0
+            # Only set price if it wasn't explicitly provided in the request
+            if 'price' not in request_data:
+                request_data['price'] = 0
+        else:
+            # If book is being set to paid, price is required
+            if 'price' not in request_data or request_data.get('price') == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Price is required for paid books"
+                )
+    
+    # PATCH: Only update fields that are explicitly provided in the request
+    fields_to_exclude = {'category_ids', 'cover_url', 'id', 'author_id', 'created_at', 'publisher_house_name'}
+    
+    # Handle cover_url specially - it maps to cover_image in the database
+    if 'cover_url' in request_data and request_data['cover_url'] is not None:
+        db_book.cover_image = request_data['cover_url']
+    
+    # Update only the fields that were explicitly provided in the request
+    for field, value in request_data.items():
+        if field not in fields_to_exclude and value is not None:
+            setattr(db_book, field, value)
+    
+    # Update categories if provided
+    if 'category_ids' in request_data and request_data['category_ids']:
+        categories = db.query(Category).filter(Category.id.in_(request_data['category_ids'])).all()
+        if len(categories) != len(request_data['category_ids']):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="One or more categories not found"

@@ -48,10 +48,16 @@ class User(Base):
     # Skills field - JSON string of user skills
     skills = Column(Text, nullable=True)  # JSON string of selected skills
     
+    
     # Writer fields
     writer_bio = Column(Text, nullable=True)
     published_books_count = Column(Integer, default=0)
     is_featured_writer = Column(Boolean, default=False)
+    
+    # Admin blocking fields
+    is_blocked = Column(Boolean, default=False)  # Admin can block users
+    blocked_reason = Column(Text, nullable=True)  # Reason for blocking
+    blocked_at = Column(DateTime, nullable=True)  # When the user was blocked
     
 
     interests = relationship("Category", secondary=user_interests, back_populates="interested_users")

@@ -13,7 +13,7 @@ import string
 # Security configuration
 SECRET_KEY = "N93qNdu1uEX7oKM3ZQnHdV02TIuRt4umLG07eV4JhzI"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours (1440 minutes)
+ACCESS_TOKEN_EXPIRE_MINUTES = 7200  # 100 hours (1440 minutes)
 
 # Admin configuration
 ADMIN_CODE = "ADMIN2024"  # Change this in production
@@ -212,11 +212,23 @@ async def get_current_unified_user(token: str = Depends(get_bearer_token), db: S
         user = db.query(User).filter(User.email == email).first()
         if user is None or not user.is_active:
             raise credentials_exception
+        if user.is_blocked:
+            reason = user.blocked_reason or "No reason provided"
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"the system blocked you because {reason}"
+            )
         return user
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
+    if current_user.is_blocked:
+        reason = current_user.blocked_reason or "No reason provided"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"the system blocked you because {reason}"
+        )
     return current_user
 
 def check_user_role(required_role: UserRole):
