@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from database import get_db
-from models import User, UserRole, PublisherHouse, Admin, PasswordResetToken
+from models import User, UserRole, PublisherHouse, Admin, PasswordResetToken, TokenBlacklist
 from schemas import TokenData
 import random
 import string
@@ -138,6 +138,83 @@ def mark_token_as_used(token: str, db: Session) -> bool:
     
     return False
 
+# Logout Functions
+def blacklist_token(token: str, user_email: str, db: Session) -> bool:
+    """Add a token to the blacklist"""
+    try:
+        # Decode token to get expiration time
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        exp_timestamp = payload.get("exp")
+        if exp_timestamp:
+            expires_at = datetime.fromtimestamp(exp_timestamp)
+        else:
+            # If no expiration, set to current time (effectively expired)
+            expires_at = datetime.utcnow()
+        
+        # Check if token is already blacklisted
+        existing_blacklist = db.query(TokenBlacklist).filter(
+            TokenBlacklist.token == token
+        ).first()
+        
+        if existing_blacklist:
+            return True  # Already blacklisted
+        
+        # Add to blacklist
+        blacklist_entry = TokenBlacklist(
+            token=token,
+            user_email=user_email,
+            expires_at=expires_at
+        )
+        
+        db.add(blacklist_entry)
+        db.commit()
+        return True
+        
+    except JWTError:
+        # If token is invalid, we can't blacklist it, but that's okay
+        return False
+    except Exception:
+        db.rollback()
+        return False
+
+def is_token_blacklisted(token: str, db: Session) -> bool:
+    """Check if a token is blacklisted"""
+    try:
+        blacklist_entry = db.query(TokenBlacklist).filter(
+            TokenBlacklist.token == token
+        ).first()
+        
+        if blacklist_entry:
+            # Clean up expired tokens
+            if blacklist_entry.is_expired:
+                db.delete(blacklist_entry)
+                db.commit()
+                return False
+            return True
+        
+        return False
+        
+    except Exception:
+        return False
+
+def cleanup_expired_tokens(db: Session) -> int:
+    """Clean up expired tokens from blacklist"""
+    try:
+        expired_tokens = db.query(TokenBlacklist).filter(
+            TokenBlacklist.expires_at < datetime.utcnow()
+        ).all()
+        
+        count = len(expired_tokens)
+        for token in expired_tokens:
+            db.delete(token)
+        
+        db.commit()
+        return count
+        
+    except Exception:
+        db.rollback()
+        return 0
+
 async def get_bearer_token(authorization: Optional[str] = Header(None, include_in_schema=False)) -> str:
     if not authorization:
         raise HTTPException(
@@ -170,6 +247,14 @@ async def get_current_user(token: str = Depends(get_bearer_token), db: Session =
         headers={"WWW-Authenticate": "Bearer"},
     )
     
+    # Check if token is blacklisted
+    if is_token_blacklisted(token, db):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked. Please login again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
@@ -191,6 +276,14 @@ async def get_current_unified_user(token: str = Depends(get_bearer_token), db: S
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    # Check if token is blacklisted
+    if is_token_blacklisted(token, db):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked. Please login again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -268,6 +361,14 @@ async def get_current_admin(token: str = Depends(get_bearer_token), db: Session 
         detail="Could not validate admin credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    # Check if token is blacklisted
+    if is_token_blacklisted(token, db):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked. Please login again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

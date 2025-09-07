@@ -175,6 +175,7 @@ async def login_publisher_house(
         email=publisher_house.email
     )
 
+
 # Get Publisher House Profile
 @router.get("/me", response_model=PublisherHouseSchema)
 async def get_publisher_house_profile(

@@ -279,6 +279,142 @@ async def create_publisher_book_with_file(
     
     return db_book
 
+@router.delete("/publisher/books/{book_id}")
+async def delete_publisher_book(
+    book_id: int,
+    current_publisher = Depends(get_current_publisher_house_from_token),
+    db: Session = Depends(get_db)
+):
+    """Delete a book (only if owned by current publisher house)"""
+    # Check if book exists and belongs to this publisher
+    book = db.query(Book).filter(
+        Book.id == book_id,
+        Book.publisher_house_id == current_publisher.id
+    ).first()
+    
+    if not book:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Book not found or you don't have permission to delete it"
+        )
+    
+    # Delete the book
+    db.delete(book)
+    db.commit()
+    
+    return {"message": "Book deleted successfully"}
+
+@router.get("/publisher/books", response_model=List[BookSchema])
+async def get_publisher_books(
+    current_publisher = Depends(get_current_publisher_house_from_token),
+    db: Session = Depends(get_db)
+):
+    """Get all books created by the current publisher house"""
+    books = db.query(Book).filter(
+        Book.publisher_house_id == current_publisher.id
+    ).all()
+    
+    # Populate publisher_house_name for each book
+    for book in books:
+        if book.publisher_house:
+            book.publisher_house_name = book.publisher_house.name
+        else:
+            book.publisher_house_name = None
+    
+    return books
+
+@router.get("/publisher/books/{book_id}", response_model=BookSchema)
+async def get_publisher_book(
+    book_id: int,
+    current_publisher = Depends(get_current_publisher_house_from_token),
+    db: Session = Depends(get_db)
+):
+    """Get a specific book by ID (only if owned by current publisher)"""
+    book = db.query(Book).filter(
+        Book.id == book_id,
+        Book.publisher_house_id == current_publisher.id
+    ).first()
+    
+    if not book:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Book not found or you don't have permission to view it"
+        )
+    
+    # Populate publisher_house_name
+    if book.publisher_house:
+        book.publisher_house_name = book.publisher_house.name
+    else:
+        book.publisher_house_name = None
+    
+    return book
+
+@router.put("/publisher/books/{book_id}", response_model=BookSchema)
+async def update_publisher_book(
+    book_id: int,
+    book_update: BookUpdate,
+    current_publisher = Depends(get_current_publisher_house_from_token),
+    db: Session = Depends(get_db)
+):
+    """Update a book (only if owned by current publisher) - Partial update supported"""
+    book = db.query(Book).filter(
+        Book.id == book_id,
+        Book.publisher_house_id == current_publisher.id
+    ).first()
+    
+    if not book:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Book not found or you don't have permission to update it"
+        )
+    
+    # Handle price logic based on is_free status
+    if book_update.is_free is not None:
+        if book_update.is_free:
+            # If book is being set to free, automatically set price to 0
+            if book_update.price is None:
+                book_update.price = 0
+        else:
+            # If book is being set to paid, price is required
+            if book_update.price is None or book_update.price == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Price is required for paid books"
+                )
+    
+    # Update only the fields that are explicitly provided (partial update)
+    update_data = book_update.dict(exclude_unset=True, exclude={'category_ids', 'cover_url'})
+    
+    # Handle cover_url specially - it maps to cover_image in the database
+    if book_update.cover_url is not None:
+        book.cover_image = book_update.cover_url
+    
+    # Update only the fields that were explicitly provided in the request
+    for field, value in update_data.items():
+        if value is not None:  # Only update if value is not None
+            setattr(book, field, value)
+    
+    # Update categories if provided
+    if book_update.category_ids:
+        categories = db.query(Category).filter(Category.id.in_(book_update.category_ids)).all()
+        if len(categories) != len(book_update.category_ids):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="One or more categories not found"
+            )
+        book.categories = categories
+    
+    db.commit()
+    db.refresh(book)
+    
+    # Populate publisher_house_name before returning
+    if book.publisher_house:
+        book.publisher_house_name = book.publisher_house.name
+    else:
+        book.publisher_house_name = None
+    
+    return book
+
 
 @router.get("/", response_model=List[BookSchema])
 async def get_books(

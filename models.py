@@ -264,6 +264,20 @@ class PasswordResetToken(Base):
         """Check if the token is expired"""
         return datetime.utcnow() > self.expires_at
 
+class TokenBlacklist(Base):
+    __tablename__ = "token_blacklist"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String, nullable=False, unique=True, index=True)
+    user_email = Column(String, nullable=False, index=True)
+    blacklisted_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+    
+    @property
+    def is_expired(self):
+        """Check if the token is expired"""
+        return datetime.utcnow() > self.expires_at
+
 class Advertisement(Base):
     __tablename__ = "advertisements"
 

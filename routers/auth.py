@@ -113,6 +113,7 @@ async def login_for_access_token(
         "user_id": user.id
     }
 
+
 # Role upgrade endpoints
 @router.post("/upgrade-to-writer", response_model=UserSchema)
 async def upgrade_to_writer(

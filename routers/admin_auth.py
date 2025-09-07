@@ -142,6 +142,7 @@ async def admin_login(
         "is_super_admin": admin.is_super_admin
     }
 
+
 # Route: Get all publisher registration requests (admin only)
 @router.get("/publisher-requests", response_model=list[PublisherHouseSchema])
 def get_all_publisher_requests(db: Session = Depends(get_db)):
