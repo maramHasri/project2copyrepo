@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 from database import get_db
@@ -286,18 +286,17 @@ async def get_all_my_vacancy_applications(
 @router.put("/applications/{application_id}/status")
 async def update_application_status(
     application_id: int,
-    status: str,
+    approved: bool = Query(..., description="Application status: true=approved, false=rejected"),
     current_publisher: PublisherHouse = Depends(get_current_publisher_house_from_token),
     db: Session = Depends(get_db)
 ):
-    """Update the status of a CV application (publisher only)"""
-    # Validate status
-    valid_statuses = ["pending", "reviewed", "accepted", "rejected"]
-    if status not in valid_statuses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
-        )
+    """Update the status of a CV application (publisher only)
+    
+    - approved=true: Application is approved
+    - approved=false: Application is rejected
+    """
+    # Convert boolean to status string
+    status = "accepted" if approved else "rejected"
     
     # Get the application
     application = db.query(CVApplication).filter(CVApplication.id == application_id).first()
@@ -323,7 +322,8 @@ async def update_application_status(
     application.status = status
     db.commit()
     
-    return {"message": f"Application status updated to {status}"}
+    status_text = "approved" if approved else "rejected"
+    return {"message": f"Application {status_text} successfully"}
 
 @router.get("/vacancies-with-applications")
 async def get_vacancies_with_applications(

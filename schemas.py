@@ -389,6 +389,7 @@ class CVApplication(CVApplicationBase):
     applied_at: datetime
     user_name: Optional[str] = None
     vacancy_title: Optional[str] = None
+    vacancy: Optional[Vacancy] = None  # Full vacancy object
 
     class Config:
         from_attributes = True

@@ -293,6 +293,16 @@ class Advertisement(Base):
     # العلاقات
     publisher_house = relationship("PublisherHouse", back_populates="advertisements")
     admin = relationship("Admin", back_populates="advertisements")
+    
+    @property
+    def publisher_house_name(self):
+        """Get the publisher house name from the relationship"""
+        return self.publisher_house.name if self.publisher_house else None
+    
+    @property
+    def admin_name(self):
+        """Get the admin name from the relationship"""
+        return self.admin.username if self.admin else None
 class Vacancy(Base):
     __tablename__ = "vacancies"
 

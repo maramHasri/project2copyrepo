@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from database import get_db
 from models import Advertisement, PublisherHouse, Admin, User
@@ -102,7 +102,10 @@ async def get_all_advertisements(
 ):
     """Get all advertisements for admin review - admin only"""
     try:
-        query = db.query(Advertisement)
+        query = db.query(Advertisement).options(
+            joinedload(Advertisement.publisher_house),
+            joinedload(Advertisement.admin)
+        )
         
         if status_filter:
             query = query.filter(Advertisement.status == status_filter)
